@@ -168,7 +168,7 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 上面这一列的 rc 全写在自己的日志里，且这些日志都出自**定稿树**（`css/game.css` 的 `min-height` 修好
 之后那一版；浏览器腿：`_tmp-moonsun-gate-final2.log`；阴性自证：`_tmp-moonsun-selftest-final2.log`；
 引擎闸：`_tmp-moonsun-et-final6.log`；balance：`_tmp-moonsun-balance-final2.log`；破坏台账：
-`_tmp-moonsun-sab-final3.log`；doctest：`_tmp-moonsun-dt13.log`）。文档里那些 ms 与「本轮 med」是从
+`_tmp-moonsun-sab-final4.log`；doctest：`_tmp-moonsun-dt13.log`）。文档里那些 ms 与「本轮 med」是从
 **同一次跑**抄来的读数，回填数字之后重跑的是 `doctest` 与 `engine-test`——因为没有任何闸比 ms，
 闸比的是条数、节点数和等式。这两份日志记的就是回填之后那一版的读数：此后任何一次改动都由 CI 的
 `check` job 现跑这两个命令收口，所以这里不需要"日志永远差一版"的追补。
@@ -294,9 +294,9 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 钉的是**行首锚点**而不是全局替换，因为全局替换曾经把下面那句**历史**读数也改成过本轮的数，
 那时没有任何一条闸读得到它；现在 `D19` 拿合成台账现测这只手（少一处锚点、多一处无人认领、
 历史那句被吞、台账行漂了，四种都必须红），钉对之后重跑不再改写。
-定稿后整轮重跑：`逼红 24 · 未逼红 0`（`_tmp-moonsun-sab-final3.log`；这一份日志的末尾就是写者在
-定稿树上的自证读数「README 台账已经等于本轮读数（幂等：没有改写）」——幂等不必再靠另一个脚本重建
-24 行喂回写者来证明）。
+定稿后整轮重跑：`逼红 24 · 未逼红 0`（`_tmp-moonsun-sab-final4.log`，跑在回填完这一版的文档之后；
+这一份日志的末尾就是写者的自证读数「README 台账已经等于本轮读数（幂等：没有改写）」，跑完 `git status`
+干净——幂等不必再靠另一个脚本重建 24 行喂回写者来证明）。
 
 | 刀 | 改哪里 | 期望 | 实跑 | 咬到它的闸 |
 | --- | --- | --- | --- | --- |
