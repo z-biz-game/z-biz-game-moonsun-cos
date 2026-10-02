@@ -120,12 +120,12 @@ export function makeBoard(rows, cols, seed, { minLoopFrac = 0.5, avgChunk = 2.5,
 }
 
 // 挖线索：每试一条都要同时过两道判据，过了才真拿掉。spent 累计计数器节点，超预算就收手。
-export function dig(bd, mask, { cap = CAP_WORK, seed = 1, work = DIG_WORK } = {}) {
+export function dig(bd, mask, { cap = CAP_WORK, seed = 1, work = DIG_WORK, maxRemoved = Infinity } = {}) {
   const rnd = makeRng(seed);
   const order = rnd.shuffle([...Array(bd.rows * bd.cols).keys()]);
   let removed = 0, spent = 0;
   for (const i of order) {
-    if (spent > work) break;
+    if (spent > work || removed >= maxRemoved) break;
     const r = (i / bd.cols) | 0, c = i % bd.cols;
     const held = bd.sym[r][c];
     if (held === '.') continue;
@@ -161,7 +161,7 @@ export function build(rows, cols, seed, opts = {}) {
     before, clues: before - d.removed, removed: d.removed,
     rooms: bd.room.flat().reduce((a, k) => Math.max(a, k + 1), 0),
     loopCells: answer.filter((m) => pop(m) === 2).length,
-    steps: pen.steps, spent: d.spent + cnt.nodes,
+    steps: pen.steps, cuts: [...pen.fired.values()].reduce((a, b) => a + b, 0), spent: d.spent + cnt.nodes,
     nodes: cnt.nodes, stopped: cnt.stopped, illegal: legal,
     ms, fired: [...pen.fired].map(([name, times]) => `${name}x${times}`),
   };
@@ -172,10 +172,13 @@ export function build(rows, cols, seed, opts = {}) {
 // 所以存档只需要记 seed，不需要记盘面对。
 export const MAX_ATTEMPTS = 24;
 
-export function makePuzzle(sizeKey, seed) {
+// async 只是为了能把浏览器让出去一次一试：7×7 的最坏一次要跑几秒，不让出去页面就
+// 是「点了没反应的死窗口」，而那正是玩家判断「这页坏了」的唯一依据。
+export async function makePuzzle(sizeKey, seed, { tick = null } = {}) {
   const t = parseSize(sizeKey);
   let lastFail = 'no attempt';
   for (let a = 0; a < MAX_ATTEMPTS; a++) {
+    if (tick) await tick();
     const use = (seed >>> 0) + a * 101;
     const built = build(t.rows, t.cols, use);
     if (!built.fail) {
@@ -183,7 +186,7 @@ export function makePuzzle(sizeKey, seed) {
         sizeKey: t.key, rows: t.rows, cols: t.cols, seed: use, attempts: a + 1,
         room: built.bd.room, sym: built.bd.sym, answer: built.answer,
         clues: built.clues, rooms: built.rooms, loopCells: built.loopCells,
-        nodes: built.nodes, steps: built.steps, spent: built.spent, fired: built.fired,
+        nodes: built.nodes, steps: built.steps, cuts: built.cuts, spent: built.spent, fired: built.fired,
       };
     }
     lastFail = built.fail;

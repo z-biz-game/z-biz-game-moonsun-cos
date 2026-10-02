@@ -19,7 +19,6 @@ export const RULE_TEXT = {
   N3_度数满: '这格已经接了两条线，其余方向一律不能再接。',
   N4_唯一出路: '已定的那条线只剩一个方向还能接，就把它钉上。',
   N5_度数缺口: '在环上的格还差两条而只剩两个空方向 → 都接上；已确定不在环上的格一条线都不许接。',
-  N6_交替: '环上首尾相邻的两个区域必须一月一日。',
   N7_房间必进: '每个区域都要被穿两次；能穿的那条边界只剩一条时，必走它。',
   N8_不成小环: '接上就会闭合成圈、而盘上还有没安排完的格或区域，这条线不能接。',
   N9_环序平衡: '月亮区与太阳区沿环交替，数量各占一半；一侧已经凑满，剩下的区域就全是另一侧。',
@@ -199,22 +198,10 @@ export function solve(bd, { maxSteps = 500, audit = null } = {}) {
       if (want && setLabel(k, want, 'N1_符号定标')) changed = true;
     }
     if (contradiction) break;
-    // N6_交替: a used crossing between a labelled room and a neighbour fixes the neighbour's label
-    for (let k = 0; k < R; k++) {
-      if (!label[k]) continue;
-      for (const [i, j, d] of cross[k]) {
-        if (!((used[i] >> d) & 1)) continue;
-        const o = rid[i] === k ? j : i;
-        const K = rid[o];
-        if (K === k) continue;
-        const need = label[k] === 1 ? 2 : 1;
-        if (label[K] === need) continue;
-        if (label[K]) { contradiction = `N6 room ${k}/${K}`; break; }
-        if (setLabel(K, need, 'N6_交替')) changed = true;
-      }
-      if (contradiction) break;
-    }
-    if (contradiction) break;
+    // N6_交替 删了：它要在"已用的穿越边"上定邻区符号，而那条边一被用上，两个区域的符号
+    // 早就被 N1（环走到了符号）或 N14（活路只剩一个符号）定完了。tools/engine-test.mjs 的
+    // A5 在官方例题 + 36 张出货盘上数到它开火 0 次 —— 从不开火的规则是装饰，不是保险。
+    // 交替这件事本身没有松：穷举侧 rules.js 的 alternation 条款照旧逐格复核。
     // N2_两越定边: room already crossed twice -> every other crossing link is cut
     for (let k = 0; k < R; k++) {
       const u = usedCross(k), f = freeCross(k);

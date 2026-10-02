@@ -79,23 +79,25 @@ export function checks(bd, mask, P = prep(bd)) {
   if (out.length) return out;
   const on = Array.from(mask, m => pop(m) === 2);
   const cnt = on.filter(Boolean).length;
-  if (!cnt) { note('empty', 'empty', []); return out; }
+  if (!cnt) { note('empty', 'empty', [], 'warn'); return out; }
   const start = on.indexOf(true);
   const seen = new Set([start]);
-  let prev = -1, cur = start, steps = 0;
+  let prev = -1, cur = start, steps = 0, broke = null;
   for (;;) {
     let nx = -1;
     for (let d = 0; d < 4; d++) {
       const j = P.nb[cur][d];
       if (j >= 0 && j !== prev && ((mask[cur] >> d) & 1)) { nx = j; break; }
     }
-    if (nx < 0) { note('open', `deadend${cur}`, [cur], 'warn'); break; }
+    // 'open' 曾是自己的一条码，但它到不了玩家眼前：走到断头之前那格的度数已经是 1，
+    // 度数那条先红了。所以断头/runaway 都归给 disjoint，只是 warn 级。
+    if (nx < 0) { broke = 'deadend'; break; }
     prev = cur; cur = nx; steps++;
     if (cur === start) break;
     seen.add(cur);
-    if (steps > P.n) { note('open', 'runaway', [...seen], 'warn'); break; }
+    if (steps > P.n) { broke = 'runaway'; break; }
   }
-  if (cur !== start) note('open', `open:${steps}`, [...seen]);
+  if (broke || cur !== start) note('disjoint', `${broke || 'open'}:${steps}`, [...seen], 'warn');
   else if (seen.size !== cnt) note('disjoint', `multi:${cnt - seen.size}`, on.map((v, i) => (v && !seen.has(i) ? i : -1)).filter(i => i >= 0));
   for (let k = 0; k < P.R; k++) {
     const cr = P.cross[k].filter(([i, j, d]) => ((mask[i] >> d) & 1) === 1 && ((mask[j] >> OPP[d]) & 1) === 1).length;
@@ -139,7 +141,6 @@ export const CLAUSE_TEXT = {
   degree: '环经过一格就带走两条线：这格引出的线不是 2 条。',
   edge: '环线穿出了棋盘边界。',
   asym: '两格相邻却只有一格朝对方引线，这一头没接上。',
-  open: '环线在这里断了头，没有闭合成一圈。',
   disjoint: '环分成了互不相连的几段，题目要求的是一整条。',
   cross: '每个区域恰好被环穿过两次（穿过边界线，不是走进去）。',
   symbol: '环进哪个区域，就把那个区域的符号全走到、另一个符号一格都不碰。',
@@ -152,7 +153,7 @@ export const CLAUSE_TEXT = {
 // shippable if the exhaustive counter proves uniqueness inside it, and every
 // tier in the size menu is measured against this same number.
 export const CAP_WORK = 2000000;
-export function countSolutions(bd, { cap = CAP_WORK } = {}) {
+export function countSolutions(bd, { cap = CAP_WORK, upTo = Infinity } = {}) {
   const P = prep(bd);
   const mask = new Int16Array(P.n);
   const par = new Int32Array(P.n);
@@ -161,6 +162,7 @@ export function countSolutions(bd, { cap = CAP_WORK } = {}) {
   // pointer would survive the rollback and report a cycle that is not there.
   const find = i => { while (par[i] !== i) i = par[i]; return i; };
   let nodes = 0, solutions = 0, stopped = false, first = null;
+  let capped = false;                       // upTo reached: >= upTo solutions witnessed
   let closed = false;                       // a full cycle has already formed
 
   function feasible(k, cur) {
@@ -175,11 +177,15 @@ export function countSolutions(bd, { cap = CAP_WORK } = {}) {
   }
 
   function dfs(cur) {
-    if (stopped) return;
+    if (stopped || capped) return;
     nodes++;
     if (nodes > cap) { stopped = true; return; }
     if (cur === P.n) {
-      if (!satisfies(bd, mask, P).length) { solutions++; if (!first) first = Array.from(mask); }
+      if (!satisfies(bd, mask, P).length) {
+        solutions++;
+        if (!first) first = Array.from(mask);
+        if (solutions >= upTo) capped = true;
+      }
       return;
     }
     const r = (cur / P.cols) | 0, c = cur % P.cols;
@@ -215,5 +221,5 @@ export function countSolutions(bd, { cap = CAP_WORK } = {}) {
     }
   }
   dfs(0);
-  return { solutions, nodes, stopped, first, P };
+  return { solutions, nodes, stopped, capped, first, P };
 }
