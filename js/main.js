@@ -177,7 +177,10 @@ function persist() {
 // 落子之后唯一的判胜入口：Game 自己不改状态，状态只在这里由引擎的结论写。
 function afterMove() {
   if (!game) return false;
-  const won = game.violations().length === 0 && game.drawnCells > 0;
+  // 判胜只问 Game.wonNow() 一次，并且把结论写回 game.status：状态行、存档里的 won 标记、
+  // 「再来一步就拒绝落子」都读 status，它们和幕布必须是同一个结论，否则赢了但界面上写着「还差线索」。
+  const won = game.wonNow();
+  game.status = won ? 'won' : 'playing';
   if (won) {
     stopTimer();
     $('#win-meta').textContent = `${puzzle.sizeKey} · ${game.roomCount} 个区域 · ${game.clueCount} 条线索 · ${game.drawnCells} 格在环上 · ${fmtTime(elapsedMs)} · ${game.moves.length} 步 · hints ${game.hints}`;
@@ -263,8 +266,20 @@ const KEYS = {
   ArrowUp: [UP], ArrowRight: [RIGHT], ArrowDown: [DOWN], ArrowLeft: [LEFT],
 };
 
+// 焦点坐在控件上时键盘归控件：按钮上的空格/回车是"按下这个按钮"，下拉框上的箭头是"换一项"。
+// 游戏的快捷键挂的是 window，不挡这一层的话，一次空格会既点按钮又改盘面。
+const CONTROL = new Set(['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON']);
+const onControl = (t) => !!t && (CONTROL.has(t.tagName) || t.isContentEditable === true);
+
+window.addEventListener('keypress', (ev) => {
+  // 空格"翻页"在 Blink 里是 **keypress** 的默认动作，keydown 上 preventDefault 挡不住它
+  //（实测：只派发 keyDown 页面一格不滚，补上 char 那一下页面滚了 703px）。滚档的那一下
+  // 必须连这个一起挡，否则玩家按一次空格既换了档，又把题目推出了视野。
+  if ((ev.key === ' ' || ev.key === 'Enter') && !onControl(ev.target)) ev.preventDefault();
+});
+
 window.addEventListener('keydown', (ev) => {
-  if (!game) return;
+  if (!game || onControl(ev.target)) return;
   const k = ev.key;
   if (KEYS[k]) {
     ev.preventDefault();
