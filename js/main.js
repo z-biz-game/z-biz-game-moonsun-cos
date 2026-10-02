@@ -57,7 +57,7 @@ function fillClauseLists() {
   $('#shape-legend').replaceChildren(...SHAPE_CYCLE.map((v, k) => {
     const span = document.createElement('span');
     span.className = 'chip mono';
-    span.textContent = `${k === 0 ? '⌫/空格' : k}: ${SHAPE_NAME[v]}`;
+    span.textContent = `${k === 0 ? '⌫' : k - 1}: ${SHAPE_NAME[v]}`;
     return span;
   }));
   const sel = $('#size-select');

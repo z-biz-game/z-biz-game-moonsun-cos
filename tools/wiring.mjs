@@ -53,10 +53,75 @@ const exp = (p) => {
   return cache.get(p);
 };
 
-let bad = 0, checked = 0;
+// 注释与字符串里的词不算使用：board.js 的注释里有「UP/DOWN」这种写法，把它当引用就会
+// 误报成接线断了，而误报的闸会被当成噪音绕过去。
+const strip = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^[ \t]*\/\/[^\n]*/gm, ' ')
+    .replace(/`[\s\S]*?`/g, ' ')
+    .replace(/'(?:\\.|[^'\\\n])*'/g, "''")
+    .replace(/"(?:\\.|[^"\\\n])*"/g, '""');
+
+// 反向那一半：用到了别处 export 出来的名字，却既没 import 也没在本地声明。这就是
+// js/render/board.js 里那句 `ReferenceError: UP is not defined`——语法过得去、模块加载也
+// 过得去，只有画到「盘外那一条边」时才崩，而在 headless 里崩只留下一行 console。
+// 上面那半边看不见它，因为这个名字根本没出现在任何一条 import 语句里。
+function localNames(src) {
+  const out = new Set();
+  for (const m of src.matchAll(/import\s*(?:\{([^}]*)\}|([A-Za-z0-9_$]+))?\s*from/g)) {
+    if (m[2]) out.add(m[2]);
+    if (!m[1]) continue;
+    for (const part of m[1].split(',')) {
+      const t = part.trim();
+      if (!t) continue;
+      out.add(t.includes(' as ') ? t.split(/\s+as\s+/)[1].trim() : t);
+    }
+  }
+  // 本地声明：const/let/var/function/class，含解构与默认值里的名字（`const { a, b } =`、
+  // `const [x, y] =`），以及箭头函数的单参数形式。漏掉一种就是给自己造一条误报。
+  for (const m of src.matchAll(/\b(?:const|let|var)\s+([\s\S]{0,400}?=[\s;,\n])/g)) {
+    const head = m[1].slice(0, m[1].lastIndexOf('=') + 1);
+    for (const id of head.matchAll(/[A-Za-z0-9_$]+/g)) out.add(id[0]);
+  }
+  for (const m of src.matchAll(/\b(?:function|class)\s+([A-Za-z0-9_$]+)/g)) out.add(m[1]);
+  for (const m of src.matchAll(/\bcatch\s*\(\s*([A-Za-z0-9_$]+)/g)) out.add(m[1]);
+  for (const m of src.matchAll(/\bfor\s*\(\s*(?:const|let|var)\s+([A-Za-z0-9_$]+)/g)) out.add(m[1]);
+  // 形参也是本地名字。漏一种签名，方法参数就会全被报成"没 import"——那这种闸一天红两次，
+  // 第三次就没人看它了。
+  for (const m of src.matchAll(/function\s*[A-Za-z0-9_$]*\s*\(([^)]*)\)/g)) collect(out, m[1]);
+  for (const m of src.matchAll(/^[ \t]+[A-Za-z0-9_$]+\s*\(([^)]*)\)\s*\{/gm)) collect(out, m[1]);
+  for (const m of src.matchAll(/(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>/g)) collect(out, m[1]);
+  for (const m of src.matchAll(/(?:^|[=(,:[!&|?{};+*/-]\s*)([A-Za-z0-9_$]+)\s*=>/gm)) out.add(m[1]);
+  // 解构与方法名：`const { rows, cols } =`、`{ mask: x }` 的键位、`obj.method` 的属性位
+  // 都不是"读一个自由变量"，把它们算进声明就不会漏，也不会有误报（见下面 property 的排除）。
+  for (const m of src.matchAll(/[{,]\s*([A-Za-z0-9_$]+)\s*[:,}]/g)) out.add(m[1]);
+  return out;
+}
+function collect(set, list) {
+  for (const id of list.matchAll(/[A-Za-z0-9_$]+/g)) set.add(id[0]);
+}
+
+let bad = 0, checked = 0, bare = 0;
+const vocabulary = new Set();
+for (const f of files) for (const n of exp(f)) vocabulary.add(n);
+
 for (const f of files) {
   const src = readFileSync(f, 'utf8');
-  for (const m of src.matchAll(/import\s*(?:\{([^}]*)\}|([A-Za-z0-9_$]+))?\s*from\s*['"]([^'"]+)['"]/g)) {
+  const code = strip(src);
+  const own = exportsOf(src);
+  const declared = localNames(src);
+  const importedSpecs = [...src.matchAll(/import\s*(?:\{([^}]*)\}|([A-Za-z0-9_$]+))?\s*from\s*['"]([^'"]+)['"]/g)];
+  for (const n of vocabulary) {
+    if (own.has(n) || declared.has(n) || n === 'default') continue;
+    // 属性位与对象键位都不是"读一个自由变量"：`en.checks(...)` 走的是门面，`{ pop: 1 }` 是键。
+    // 不排掉这两处，每一份用门面的代码都会被点成接线断了。
+    const re = new RegExp(`(?<![.\\w$])${n.replace(/\$/g, '\\$')}(?![\\w$])(?!\\s*:)`);
+    if (!re.test(code)) continue;
+    bare++;
+    console.log(`MISSING IMPORT  ${path.relative(ROOT, f)} 用到 ${n}，但既没 import 也没本地声明`);
+  }
+  for (const m of importedSpecs) {
     const spec = m[3];
     if (!spec.startsWith('.')) continue;
     const target = path.resolve(path.dirname(f), spec);
@@ -77,5 +142,6 @@ for (const f of files) {
     }
   }
 }
-console.log(`wiring: ${files.length} files, ${checked} named imports, ${bad} broken`);
+bad += bare;
+console.log(`wiring: ${files.length} files, ${checked} named imports, ${bare} un-imported uses, ${bad} broken`);
 process.exit(bad ? 1 : 0);

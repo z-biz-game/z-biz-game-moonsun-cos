@@ -104,6 +104,9 @@ trap cleanup EXIT
 
 FAILED=0
 REPORTS="$TMPD/reports.txt"; : >"$REPORTS"; export REPORTS
+# 逐形态的条数账：一行 "形态序号 报告名 条数"。文档里那句「两种形态逐条相同」以前只是散文，
+# 现在由末尾那段比对兑现——同一套场景在前缀形态上少跑了几条，以前是没人发现的。
+TALLY="$TMPD/tally.txt"; : >"$TALLY"; export TALLY
 
 # 一张表两条用途：dispatch 按它跑，对数表按它数。写两张就会漂（曾经 LEGS=core 的期望是 2 份
 # 报告而实际跑 3 条 scenario，于是阴性自证红在"报告数对不上"上，而不是红在那条真断言上）。
@@ -168,6 +171,7 @@ for r in d['rows']:
     if not r['pass']: print('  FAIL %-58s %s' % (r['test'], r['detail']))
 if not d['rows']:
     print('  RED %s：NO CHECKS RUN — a leg that asserts nothing cannot be green' % leg); sys.exit(1)
+open(os.environ['TALLY'], 'a').write('%s %s %d\\n' % (os.environ.get('SHAPE_ID', '0'), leg, len(d['rows'])))
 planted = sum(1 for r in d['rows'] if r['test'].startswith('GATE_SELFTEST') and not r['pass'])
 if selfmode:
     # 先记账再判：把没种上的报告也写进对数表，末尾那句「实到几份 / 点名几份」才是有分母的数，
@@ -219,6 +223,7 @@ i=0
 # 挂在它上面的日志名与对数就都跟着漂。
 for shape in "${SHAPES[@]}"; do
   i=$((i + 1))
+  export SHAPE_ID=$i
   base=${shape%|*}
   root=${shape##*|}
   echo
@@ -254,7 +259,7 @@ for shape in "${SHAPES[@]}"; do
         @frag)
           # 对照腿：只差一个 hash 的 URL 是 same-document navigation，timeOrigin 与文档身份都不许变。
           # 正因为如此，续局那条腿不能靠"跳个 hash"来换文档——它必须走真重载。
-          run_cmd fragleg nav "${base}#gate-fragment-nav" same ;;
+          run_cmd nav nav "${base}#gate-fragment-nav" same ;;
         @resume)
           # 续局腿：scenario 自己会做一次真导航，所以这里拿到的一定是新文档。
           run_scenario resume "$leg" ;;
@@ -264,7 +269,7 @@ for shape in "${SHAPES[@]}"; do
           # 刚种下的坏档在 scenario 读到它之前就被覆写了。store.save 一并摘掉（这一个文档只读不写，
           # 补丁随它一起死），再把 URL 上的 hash 抹掉（replaceState 是同一文档，不触发 unload）：
           # 这一页没有深链，hash 本来就是惰性的，抹掉只是让下一个文档的 URL 与被测形态一字不差。
-          run_cmd reloadleg reload
+          run_cmd reload reload
           node tools/playtest.cjs eval "window.__plantedGarbage='shape-complete, board-mismatched';
             history.replaceState(null,'',location.pathname+location.search);
             window.moonsun.store.save=function(){return this.data;};
@@ -273,9 +278,9 @@ for shape in "${SHAPES[@]}"; do
               fingerprint:'5|5|'+'0'.repeat(25)+'|'+'.'.repeat(25),savedAt:1,won:false}));
             'PLANTED-' + (JSON.parse(localStorage.getItem('moonsun.save.v1')).fingerprint)" nonav >"$TMPD/plant.log" 2>&1
           grep -q 'PLANTED-5|5|' "$TMPD/plant.log" || { echo "  RED 坏档没种下去（看 $TMPD/plant.log）" >&2; FAILED=1; } ;;
-        @legmouse) run_cmd mouseleg leg mouse ;;
-        @legtouch) run_cmd touchleg leg touch ;;
-        @legkeys)  run_cmd keysleg leg keys ;;
+        @legmouse) run_cmd mouse leg mouse ;;
+        @legtouch) run_cmd touch leg touch ;;
+        @legkeys)  run_cmd keys leg keys ;;
         *) run_scenario "$step" "$leg" ;;
       esac
     done
@@ -283,21 +288,48 @@ for shape in "${SHAPES[@]}"; do
   done
 done
 
+# 跨形态对数。文档里那句「两种形态逐条相同」以前只是散文：同一套场景若在前缀形态上少跑
+# 几条（腿里某一步在子路径下早退），两边各自都绿，合起来却是一句谎话。
+# 分母不另抄一份——由 scenarios_for 现场算，和阴性自证用的是同一个数。
+echo
+echo "=== 跨形态逐报告条数比对 ==="
+PER_SHAPE=0
+for leg in $LEGS; do
+  steps=$(scenarios_for "$leg") || { echo "  RED 未知的腿：${leg}（对数表里没有它）" >&2; FAILED=1; continue; }
+  for step in $steps; do case $step in @witness) ;; *) PER_SHAPE=$((PER_SHAPE + 1)) ;; esac; done
+done
+export PER_SHAPE
+python3 -c "
+import os, sys, collections
+rows = [l.split() for l in open(os.environ['TALLY']) if l.strip()]
+per = collections.defaultdict(dict)
+for shape, tag, n in rows: per[tag][shape] = int(n)
+shapes = sorted({r[0] for r in rows})
+want = int(os.environ['PER_SHAPE'])
+tot = sum(int(n) for _, _, n in rows)
+per_shape_total = sum(per[t].get(shapes[0], 0) for t in per) if shapes else 0
+print('  形态 %d 个 · 报告 tag %d 个 · scenarios_for 现场算的每形态 %d 份' % (len(shapes), len(per), want))
+if len(per) != want:
+    print('  RED 记到账的报告数 %d ≠ 对数表算出的每形态 %d 份（有腿没跑，或多跑了没在表上的）' % (len(per), want)); sys.exit(1)
+half = [t for t, d in per.items() if len(d) != len(shapes)]
+if half:
+    print('  RED 这些报告不是每个形态都记到了：' + ' '.join(half)); sys.exit(1)
+diff = [t for t, d in per.items() if len(set(d.values())) > 1]
+if diff:
+    for t in diff: print('  RED %s 两种形态条数不同：%s' % (t, dict(per[t])))
+    sys.exit(1)
+print('  ok 两种形态逐报告条数相同（每形态 %d 条 · 合计 %d 条）' % (per_shape_total, tot))
+" || FAILED=1
+
 if [ "$SELF" = 1 ]; then
   echo
   echo "=== GATE_SELFTEST：种下的期望必须点名变红 ==="
   echo "  planted rows: scenarios.js 在 __selftest 为真时给每一份报告加一条 1==2，"
   echo "                node 侧的腿（真事件 / nav / reload）由 playtest.cjs 的 result() 加同一条"
   # 对数：一份报告对应一条种下的红。少一份＝那条腿这一轮根本没跑（或种期望的代码漂了），
-  # 光看 rc≠0 是分不清这两件事的。分母现场从 scenarios_for 数，不另抄一份表。
-  EXPECTED=0
-  for leg in $LEGS; do
-    steps=$(scenarios_for "$leg") || { echo "  RED 未知的腿：${leg}（对数表里没有它）" >&2; FAILED=1; continue; }
-    n=0
-    for step in $steps; do case $step in @witness) ;; *) n=$((n + 1)) ;; esac; done
-    EXPECTED=$((EXPECTED + n))
-  done
-  EXPECTED=$((EXPECTED * ${#SHAPES[@]}))
+  # 光看 rc≠0 是分不清这两件事的。分母就是上面那段跨形态比对从 scenarios_for 现场算的那个 PER_SHAPE，
+  # 这里不再数第二遍——两份分母会在同一轮里各自漂。
+  EXPECTED=$((PER_SHAPE * ${#SHAPES[@]}))
   GOT=$(wc -l <"$REPORTS" | tr -d ' ')
   HIT=$(awk '$2 > 0' "$REPORTS" | wc -l | tr -d ' ')
   echo "  应有 $EXPECTED 份报告，实到 $GOT 份，其中 $HIT 份点名吃下了种下的错"

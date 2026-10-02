@@ -149,7 +149,7 @@ console.log('B6 被淘汰档的实测读数（单试、不重试，走 build）'
 if (process.env.BLESS) {
   console.log('\nBLESS：把这几行贴回 js/engine/tiers.js（数只有从这里出）');
   for (const r of rows) console.log(`  { key: '${r.key}', rows: ${r.rows}, cols: ${r.cols}, label: '${r.label}', work: { med: ${r.medNodes}, p95: ${r.p95Nodes} }, budgetMs: ${r.budgetMs} },`);
-  for (const e of ELIMINATED) console.log(`  { key: '${e.key}', rows: ${e.rows}, cols: ${e.cols}, samples: ${OVER_N}, ship: ${e.ship}, nodesMed: ${e.nodesMed}, nodesMax: ${e.nodesMax}, reason: '${e.reason}' },`);
+  for (const e of ELIMINATED) console.log(`  { key: '${e.key}', rows: ${e.rows}, cols: ${e.cols}, samples: ${OVER_N}, ship: ${e.ship}, nodesMed: ${e.nodesMed}, nodesMax: ${e.nodesMax}, fails: ${JSON.stringify(e.fails)}, why: '${e.why}' },`);
 }
 
 console.log(`\n合计红线 ${red} 条破口`);

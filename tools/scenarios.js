@@ -101,7 +101,7 @@
     return g;
   };
 
-  // 官方 5×5 例题（Nikoli 规则页逐格抄）——这份拷贝由 tools/doctest.mjs 的 D2 与
+  // 官方 5×5 例题（Nikoli 规则页逐格抄）——这份拷贝由 tools/doctest.mjs 的 D11 与
   // tools/fixtures.mjs 逐字节对账，所以"两处各抄一遍"不会漂成两个题面。
   const OFFICIAL = {
     rows: 5, cols: 5,
@@ -168,6 +168,11 @@
       en.ELIMINATED.every((e) => /单试 \d+ 张出货 \d+ 张 · 唯一性计数节点中位 [\d,]+（预算 [\d,]+ 的 \d+%）· 最坏 [\d,]+（\d+%）/.test(en.eliminatedLine(e))),
       en.ELIMINATED.map((e) => en.eliminatedLine(e).slice(0, 46)).join(' | '));
     ck('形态图例把每一档都写出来', [...document.querySelectorAll('#shape-legend span')].length === en.SHAPE_CYCLE.length);
+    // 前缀就是键位：'没画' 只能由 ⌫ 回到，其余七档由 0–6 直接点。上一版这里印的是
+    // 「0: 没画 / 1: 不在环上」，而按下 0 写进去的是「不在环上」——图例自己教错键。
+    eq('图例每一档的前缀等于它的键位',
+      [...document.querySelectorAll('#shape-legend span')].map((s) => s.textContent.split(':')[0].trim()).join(','),
+      ['⌫', ...en.SHAPE_CYCLE.slice(1).map((_, i) => String(i))].join(','));
     eq('开局时胜利幕布真的不占位', shown('#win-veil'), false);
     eq('引擎说那一格读得到', text('#stat-verify') !== '', true);
     eq('seed 那一格印的是这一局的 seed', text('#stat-seed').includes(String(g.puzzle.seed)), true);

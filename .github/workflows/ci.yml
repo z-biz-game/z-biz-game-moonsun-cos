@@ -27,12 +27,18 @@ jobs:
           node --check server.cjs
           for f in $(git ls-files 'tools/*.mjs' tools/scenarios.js tools/playtest.cjs); do node --check "$f" || exit 1; done
 
+      # 逐文件 --check 只保证每个文件自己语法过；跨文件的 import 名字对不对（用到的名字
+      # 真的被 export 了吗、import 进来的真的还在用吗）要这一条才看得见。本地 npm run check
+      # 已经带它，CI 必须带同一个，否则"只有 CI 会红"的门会在合并后才第一次说话。
+      - name: Import wiring is real
+        run: node tools/wiring.mjs
+
       # The real promise: every generated board has one solution and is reachable by the named
       # pencil rules. Plain Node, so it guards merges without a browser.
       - name: Engine tests
         run: node tools/engine-test.mjs
 
-      # README 印出去的每一个「现值」都得等于代码/脚本里的现在值：三档表、10 条规则名、
+      # README 印出去的每一个「现值」都得等于代码/脚本里的现在值：三档表、八条文、13 条规则名、
       # 腿 × 形态、端口、节点预算、这张覆盖表本身、以及 SAMPLES 旋钮。散文没有闸读，
       # 于是它会一直抄到代码改了字而文档还在引用上一个世界——这一步就是不让它那样。
       - name: Docs are asserted surface
@@ -60,7 +66,7 @@ jobs:
         with:
           node-version: 22
 
-      # verify.sh 自己起 server，两种 URL 形态（根 / 与 Pages 的 /z-biz-game-hebi-cos/）都在
+      # verify.sh 自己起 server，两种 URL 形态（根 / 与 Pages 的 /z-biz-game-moonsun-cos/）都在
       # 同一个 server 上跑同一套场景；条数逐条相同才算绿。
       - name: Browser gate, both local URL shapes
         env:

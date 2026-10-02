@@ -1,157 +1,230 @@
-# DESIGN · 蛇莓 Hebi-Ichigo
+# Moonsun · 设计说明：规则从哪来、歧义怎么裁、哪些话没有闸
 
-这份文档只做一件事：把「页面上说出口的每一句话」对上「哪条闸在什么命令下守它」。
-所有数字都是本轮实测（`npm test` / `npm run check` / `npm run balance` / `npm run doctest` / `bash tools/verify.sh` /
-`GATE_SELFTEST=1 bash tools/verify.sh`），括号里是打印或断言它的那行代码。
-没有闸守的话就写进最后的**不承诺**，不写成成就。
+这份文件只管三件事：**来源**（谁规定的规则，逐字）、**裁决**（题面说不清的地方按哪一句办，凭什么）、
+**取舍与不承诺**（为什么长成这样，以及哪些话目前只由我说过而没有任何命令会因为它红）。
+表、读数、门禁清单在 `README.md`；这里不重抄它们，只解释它们为什么那么挑。
 
-## 来源与取证
+---
 
-规则文本逐字抄在两处，本仓不自创条款：
+## 一、来源：两家独立机构，各抄一份
 
-- Nikoli（英文页）四条：蛇按 `1(头)→5(尾)` 顺序连、蛇与蛇不能共边、从 `2→1` 方向看（蛇的视线）
-  到下一个黑格或盘边之间不能有别的蛇、黑格里的数字是箭头方向上第一个数字（0 = 一路到黑格/边界都没有）。
-- Cross+A：蛇眼在**头格**朝向「背离身体那一侧」的边上。
+立项的第一条铁律是**先数源**。同一家出版方的英文页与日文页只算一个源，同一个网页上的多个 tab
+也只算一个源——所以这里的两份刻意来自**不同机构**：
 
-两份来源单读文字在「箭头是谁的」上有歧义（黑格自带箭头，还是蛇眼投过来的视线），
-按官方规则图钉死成前者：箭头与数字都印在黑格里、是题面给的，蛇眼只管第 3 条
-（`js/engine/hebi.js:14`）。逐字原文与链接就写在 `js/engine/hebi.js:2`–`js/engine/hebi.js:16`。
-题面**不给**蛇的条数、也**不要求**白格填满（`js/engine/hebi.js:16`）——这两句是判据形状的前提。
+- 源 1 · **Nikoli**（本谜题的发明方与出版方）：<https://www.nikoli.co.jp/en/puzzles/moon_or_sun/>
+- 源 2 · **Cross+A**（日本另一家谜题机构，自己的规则页与自己的措辞）：
+  <https://www.cross-plus-a.com/puzzles.htm#Moonsun>
 
-## 两条互相不认识的路
+两份文本逐字抄在这里（并由 `tools/doctest.mjs` 的 D14 逐字对账 `tools/fixtures.mjs` 的 `SOURCES`——
+也就是说这两段引文不是"文档里的手抄本"，是有一行等式在读的）：
 
-一张盘出货前必须同时点头两次：
+Nikoli 的五条：
 
-1. **铅笔** `solvePencil()`：只用命名规则 `P0-区 / P1-链 / P1-弧 / P2-邻 / P2-围 / P3-眼 /
-   P4-零 / P4-挡 / P4-独 / P4-尽`（名字逐条列在 `js/engine/pencil.js:3`–`js/engine/pencil.js:12`），
-   从空盘推。推不满就退货。
-2. **穷举计数器** `countSolutions()`：不含任何推理规则，逐格枚举。它必须**恰好数出一个解**
-   且不越界；`bounded`（节点预算花完）或 `viol`（计数器与判据 R1–R4 打架）都退货
-   （`js/engine/generate.js:129`、`js/engine/generate.js:130`）。默认预算 `cap 2000000`
-   （`js/engine/generate.js:112`）。
+> Draw a line to make a single loop.
+> Lines pass through the centers of cells, horizontally, vertically, or turning. The loop never crosses itself, branches off, or goes through the same cell twice.
+> A rectangle, bordered by bold lines, is called a “room”. The loop goes through each room only one time. Once the loop leaves a room, it cannot return to enter this room.
+> In each room, the loop goes through all of the moon cells or all of the sun cells. The loop cannot pass through both moon cells and sun cells in one room.
+> After the loop goes through the moons in one room it has to go through all the suns in the next room it enters and visa versa.
 
-两条路互不复用代码，所以「唯一且零猜测」不是同一件事说两遍。官方 5×5 例题上它们会合：
-穷举 `1 解 · 76 节点 · 候选蛇 84`，铅笔 `0 猜推满 · 20/20 白格 · 6 轮`，
-**两个解逐格相同**（`tools/engine-test.mjs:78` 计数器对官方解、`tools/engine-test.mjs:83` 铅笔对官方解）。
-浏览器里跑的是同一份模块图，不是测试专用副本（`tools/scenarios.js:12` 段落说明）。
+Cross+A 的一段：
 
-判据 `check()` 返回的每条违反都以 `R1`–`R4` 开头（`js/engine/hebi.js:62`），
-因为「被自己那一条抓到」是断言的一部分：`tools/engine-test.mjs` 的反例要求 R2/R3/R4 各归各位，
-浏览器腿也断言屏幕上第一个词是条款号（`tools/scenarios.js:250`）。
+> Moonsun ("Moon or Sun") is a logic puzzle invented by Nikoli. A rectangular or square grid is divided into regions. A grid contains black and white circles in some cells. The aim is to draw a single non-intersecting loop. The loop must cross borders of each region exactly twice. In a region the loop must visit either all cells with black circles or all cells with white circles. Regions with visited black circles must alternate with regions, where white circles were visited.
 
-## 难度：只有量出来的那一种说法
+两家独立留了**同一个**歧义，这恰恰是"必须裁决"而不是"无所谓"的证据：
 
-菜单三档（`js/ui/game.js:23`）的尺寸/蛇条数是设计，**难度轴是实测推理步数**
-（`difficulty() = stats.pencilSteps`，`js/engine/generate.js` 的 `difficulty`），并且这句话本身就是断言
-（`tools/scenarios.js:147`：难度分就是实测推理步数）。本轮 `npm run balance`（CI 用 `SAMPLES=20`，
-本机同样是 20 张/档——这个 env 现在是接上的，见下面「闸的地图」里 `D7` 那一行）实测：
+1. **符号条款对"只标了一种符号的区域"怎么说**。Nikoli 写 "the loop goes through all of the moon cells
+   **or** all of the sun cells"，Cross+A 写 "must visit **either** all cells with black circles **or** all
+   cells with white circles"。一个只印了月亮的区域，走全部月亮 ⇒ 太阳"一格都不碰"是**空真**；反过来，
+   如果要求两个符号都必须**出现过**，那这个区域就不能只标月亮。前者是宽松读法，后者是严格读法。
+2. **"穿过区域" vs "走进区域"**。Nikoli 的第三条是 "goes through each room only one time"（一条路进去就
+   不许再回来），第四条与符号绑在一起；Cross+A 的说法是 "must **cross borders** of each region **exactly
+   twice**"。一次进出恰好两次穿越边界，两种说法在这一条上等价；但 Nikoli 的措辞里"只能进一次"在
+   **区域不连通**（本仓的出题器不产生这种区域，但玩家的盘面上一个区域可以由两块不相连的格组成）时
+   比"恰好穿两次"更强。本仓采 Cross+A 的**边界计数**读法，因为它是可逐格判定的那条。
 
-| 档 | 尺寸 | K | 出货 | 线索 med | 推理步 med / p95 | 每张 med / p95 ms | 唯一性节点 max |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 初 | 5×5 | 2 | 20/20 | 6 | 32 / 42 | 13 / 33 | 358 |
-| 中 | 6×6 | 3 | 20/20 | 8 | 49 / 55 | 39 / 52 | 6556 |
-| 高 | 8×8 | 5 | 20/20 | 15 | 86 / 103 | 254 / 342 | 2115 |
+## 二、裁决：靠官方例题的解数，不靠讨论
 
-（同一张表由 `tools/balance.mjs` 里每档那行 `console.log` 打印；`npm test` 用 12 个 seed 独立量到
-`31 / 49 / 88` 步、节点 max `309 / 507 / 10822`，`tools/engine-test.mjs:110`。）
+歧义不靠"哪种读法更常见"来定，靠一张题定。Nikoli 该页印着的 5×5 例题（题面图 01／解答 03）被**逐格**
+抄进 `tools/fixtures.mjs` 的 `official` + `officialLoop`（`tools/scenarios.js` 里浏览器腿用的那份拷贝由
+D11 逐字段对账，两处不会漂成两个题面）。同一张盘、同一份环，只改符号条款的读法：
 
-守这条阶梯的红线（`tools/balance.mjs`，破了就 `exit 1`）：
+- STRICT（要求那个符号在区域里**真的出现过**，空真不算）：`countSolutions` 数出 **1 个解**。
+- LITERAL（只要求"走到的那些格同符号"）：数出 **3 个解**。
 
-- **B1 成本**：每档 p95 出题耗时 ≤ `400 / 900 / 3000 ms`（`tools/balance.mjs` 的 `B1` 那一行）。
-- **B2 出货率** ≥ 20%（`tools/balance.mjs` 的 `B2`）：低于两成意味着按一下要等好几张退货。
-- **B3 单调**：`32 < 49 < 86`（`tools/balance.mjs` 的 `B3`）。
-- **B3b 首末两档区间不重叠**：`5x5 p95 42 < 8x8 p10 75`（`tools/balance.mjs` 的 `B3b`）——
-  相邻两档允许重叠，「初比高便宜」才是要守的那句话。
-- **B4 铅笔不说谎**：拿和生产同一把刀、提前收手造出的**多解盘**去问铅笔，
-  它一次都不许说「推满」（`tools/balance.mjs` 的 `B4`，本轮 `样本 15 · 见证多解盘 15 · 被推满 0`）。
-  配套的 `B4 的样本真的含多解盘`（就在 `B4` 下一行）防的是这条红线空转成永远绿的灯。
-- **B5 菜单那句「实测」是承诺**：选档页把 `TIERS.med` 原样印给玩家（`js/main.js:369`），所以
-  本轮实测的推理步 med 必须逐档等于表里的数（`tools/balance.mjs` 的 `B5`，`菜单 32/49/86 vs 实测 32/49/86`）。
-  ms 不进等式——那是机器速度，只卡方向（`B5b`，`13 < 40 < 257`）。
-- **B6 注释里写「实测」也得对上**：`js/engine/generate.js:147` 那句话自称实测单调，红线把它写的
-  三档步数钉在同一把尺子上（`tools/balance.mjs` 的 `B6`）。配套的「读到了注释里的步数」
-  （`B6` 上面那一行）防的是措辞一改、红线读不到数字就永远绿。
-  阴性自证（本轮实跑）：把注释改回历史值 `45/82` → `**RED** B6 … 注释 32/45/82 vs 实测 32/49/86`、
-  `合计红线 1 条破口`、rc=1。
+而 Nikoli 印的解答只有那一个 ⇒ **本仓采 STRICT**，因为不采它，这道题在数学上就多解，判据 1
+（唯一解）根本无从谈起。这个 1/3 不是文档里的一句话，是 `tools/engine-test.mjs` 的 **A2** 钉成的等式：
+把 `bd.strictLabel` 设成 `false` 再数一遍，两边都必须在预算内数完，且读数必须恰好是 1 与 3。
+改成别的数（比如给计数器加一条剪枝而把某一边数错）就红。`js/engine/rules.js:42` 那一行
+`const strict = bd.strictLabel !== false;` 就是这条裁决住的地方——它住在引擎里，页面、闸、文档读的都是它。
 
-浏览器侧另有一把独立的小尺子：`gen` 腿在真页面里每档各出 3 张（`tools/scenarios.js:172`），
-本轮步数 med `41 / 46 / 87`、8×8 med `350–352 ms`，并断言
-`高一档的 min(87) > 初档的 max(41)`（`tools/scenarios.js:191`）与 med 单调（`tools/scenarios.js:192`）。
+**为什么这段要写进文档而不是只写在代码注释里**：一条被代码"选了"的读法，如果不印出来，玩家和
+出题者会各自以为规则是自己熟悉的那一种，而两边看到的盘是同一张。README 的规则表与这里说的是同一句话。
 
-### 困难档怎么描述：以出货与预算为准，不以形容词为准
+## 三、两道判据为什么必须是两条不相交的路
 
-**能进菜单的尺寸就是 5×5 / 6×6 / 8×8**（`js/ui/game.js:24`–`js/ui/game.js:26`），
-因为 8×8 上穷举计数仍远没花完预算就被断言「恰好 1 解」（节点 max 本轮 10822 / 2115，上限 2000000），
-且 8×8 在 900×900 视口里每一格都点得中：64/64 命中、`cell 62px`（`tools/scenarios.js:500`、
-`tools/scenarios.js:488`）。
+- **判据 1**：`countSolutions()`（`js/engine/rules.js:171`）是**逐格穷举**，代码里没有任何推理规则，
+  它只回答"这张盘有几个解"。出货要求恰好 1 解，且节点数不越 `CAP_WORK = 2000000`
+  （`js/engine/rules.js:170`）。撞预算（`stopped`）一律算**没证完**，不许当成"没数出第二个解"。
+- **判据 2**：`solve()`（`js/engine/pencil.js:32`）只用**叫得出名字的规则**（`RULE_TEXT` 那 13 条），
+  从空盘 0 猜推满。它不许调用计数器，也不许读判据 1 的任何中间结果。
 
-10×10 K=8 **故意出局，并且出局理由印在选档页上**（`js/ui/game.js:31`–`js/ui/game.js:36`）；
-页面上有没有这段话是断言（`tools/scenarios.js:262`，另见 `tools/scenarios.js:193`；
-元素本身由 `js/main.js:374` 现造）。
-它的实测依据是 `tools/balance.mjs` 标着「观测：10x10 K=8（不在菜单里）」的那一段，
-本轮 `出货 0/6 · 墙钟 6730 ms`（同段那句 `出货 ${ship}/6`）。这一段**故意不设红线**（脚本头三行注释写明）：铅笔哪天推得满 10×10
-是进步，不该让闸变红。所以关于 10×10 的正确说法只到「本轮 6 次尝试 0 次出货、因此不给承诺」为止，
-再往上（「所有大尺寸都不行」）没有东西守着。
+两条路不许复用代码，否则"会合"就变成同义反复。`tools/engine-test.mjs` 的 **A0** 断言的是**文件里的事实**：
+`rules.js` 里不许出现 `RULE_TEXT` 或 `N\d+_`，`pencil.js` 里不许出现 `countSolutions`/`satisfies(`，
+两边互不 import。注释里写"我们没有复用"不算证据，所以这里数的是源码文本。
 
-## 闸的地图
+会合点只有一个，而且必须是**外部**给的那个：官方例题上三条读数逐格相同——
+计数器数出来的唯一解 === 铅笔推出来的盘 === 逐格抄下来的 Nikoli 解答（**A1** 的三条对账）。
+只在自造的盘上会合没有意义，因为出题器和求解器可能共享同一个我没意识到的假设。
 
-| 承诺 | 守它的东西 |
-| --- | --- |
-| 语法能过 | `npm run check`（`package.json:11`）+ CI 逐文件 `node --check`（`.github/workflows/ci.yml:26`） |
-| 唯一解 / 零猜测 / 同 seed 可复现 | `npm test` 127 条（`tools/engine-test.mjs:105` 唯一性证完、`tools/engine-test.mjs:121` seed 确定性） |
-| 阶梯与耗时预算 | `npm run balance` B1–B6（`ci.yml` 的 `Difficulty ladder is still measured` 一步设 `SAMPLES: "20"`，`balance.mjs` 末尾 `process.exit(red ? 1 : 0)`） |
-| 状态读数、留空、黑格不可改、胜利三条件 | 浏览器 `play/hint/win` 腿（`tools/scenarios.js:200`、`tools/scenarios.js:312`） |
-| 「填满但不等于唯一解」不算赢 | `tools/scenarios.js:320`–`tools/scenarios.js:324`（本轮 win 腿 24 条断言） |
-| 纪录先比提示数、撤销不退还提示计数 | `tools/scenarios.js:349`–`tools/scenarios.js:355` 往 `Store` 灌三条对照局（慢而零提示 / 快而求过一次 / 同提示同步数但更快）看谁顶掉谁，再读回选档页纪录栏（`tools/scenarios.js:361`）；`tools/scenarios.js:288`–`tools/scenarios.js:291` 撤销掉提示那一格之后回读屏幕计数 |
-| 画面真的画出来了（三种底色、留空 vs 未定、不泄露答案） | 画布像素断言 `tools/scenarios.js:478`–`tools/scenarios.js:518` |
-| 真输入事件（鼠标/触屏/键盘） | `tools/playtest.cjs:328` 的 `Input.dispatch*`，键盘焦点先真点一次钉住（`tools/playtest.cjs:407`）、逐键到达数（`tools/playtest.cjs:421`） |
-| 存档不含解、续局接得上计时 | `tools/scenarios.js:388`（存档里没有解）、`tools/scenarios.js:432`（计时从存档接着走）；证人由 node 在派发导航之前抄走（`tools/verify.sh:198`） |
-| 片段导航不算重载 | `tools/verify.sh:202`，本轮 4 条断言：`timeOrigin` 与文档身份都不许变 |
-| 坏档 = 没有存档，不是白屏 | `tools/scenarios.js:447`–`tools/scenarios.js:453`（本轮 corrupt 腿 9 条） |
-| 两种 URL 形态都算数 | `tools/verify.sh:47`（前缀形态由 `server.cjs:12` 实现，不是为测试另写一个服务）；preflight 先证明端口上的字节是本仓的（`tools/verify.sh:53`–`tools/verify.sh:60`） |
-| 闸自己会红——而且是**每一份报告**都会红 | 场景腿由 `tools/scenarios.js:29` 种一条 1==2，node 侧的真事件腿与 nav/reload 由 `tools/playtest.cjs:38` 的 `result()` 种同一条；分母从 `LEGS` 现算（`tools/verify.sh:236-245`），哪一份没种上就点名哪一份（`tools/verify.sh:128`）。CI 要求 `rc≠0` **且**日志点名 `FAIL`（`.github/workflows/ci.yml:81`、`.github/workflows/ci.yml:82`） |
-| 什么都没断言的腿不算绿 | `tools/verify.sh:113`（没有 RESULT 行）、`tools/verify.sh:121`（NO CHECKS RUN） |
-| 写错的腿名不能变成空跑 | `tools/verify.sh:218`–`tools/verify.sh:224`：`LEGS` 只认七个腿名，认不出的直接 `RED` + `FAILED=1`。这一格是本轮补的——`LEGS=hint`（`hint` 是 play 腿里的一条 scenario，不是腿名）曾经一声不响地跑出 `=== ALL GREEN ===` 而一份报告都没有；对数表那一侧同样有 `tools/verify.sh:242` 兜着。补闸台架的 H13 在这一格里咬出了第二个 bug：没有 `LANG` 的环境里 `$leg（` 会把全角括号的首字节算进变量名，红是红了却不点名腿名，所以现在写 `${leg}（` |
-| **文档印的数就是代码/脚本里的现值** | `node tools/doctest.mjs`（本轮新建）：`D1` 三档表对 `TIERS`、`D2` 十条规则名对 `pencil.js` 且每条在非注释行里出现（`D2b` 数的是剥掉注释行之后的正文——整份文件一起数会被注释凑够次数）、`D3` 腿/形态/报告数对 `verify.sh` 的现值、`D4` 端口对四处定义、`D5` 节点预算对 `opts.cap` 且读数真的小于它、`D6` CI 覆盖表与 `ci.yml` 的 job 双向核对、`D7` `SAMPLES` 用子进程探针、`D8` 逐报告条数与两个总数自洽、`D9` 每条 `path:NN` 引用都在真实行数内、`D10` 红线标签双向 |
-`SAMPLES` 那一格是本轮补闸时挖出来的：`ci.yml` 的 `Difficulty ladder` 一步一直设 `SAMPLES: "20"`，
-而 `balance.mjs` 只读 `argv[2]`——那行 env 是**装饰**，文档里「`SAMPLES=20 npm run balance` 实测」
-说的是一个不存在的机制。接线补上（`argv` 优先，其次 env，其次默认 20），`D7` 再拿子进程验一次：
-`SAMPLES=3` 必须真的打印「菜单三档 × 3 张」。
-`D2b` 那一格也是同一轮里被**自己的刀**逼出来的：它原来数整份 `pencil.js`，而 `P0-区` 光注释就出现
-三次，所以"每条规则名都不只活在注释里"这句标签在它自己的刀下兑现不了——改成数正文之后，
-README 台账的 H4（把正文那次出现改名）才真的红。逐把刀的记录在 README 的**破坏试验台账**一节。
+**提示按钮走的就是这同一个 `solve()`**，所以设计上限制得很死：它只说"第 R 行第 C 格：环一定（不）经过
+这一格"，绝不说"画成哪个形状"。把形状替你画完，推理这一步就不在玩家手里了——而这一局卖的就是推理。
 
-本轮合计：`npm test` 127/0；`npm run check` OK；`npm run doctest` `rows: 36 fail: 0`；
-`npm run balance` 红线 0 条破口；
-`bash tools/verify.sh` 604 条断言 / 0 失败（14 份报告 × 2 形态）、`=== ALL GREEN ===`、`rc=0`；
-`GATE_SELFTEST=1` `rc=1`、28 行具名红（632 条断言里 28 条失败，对数表读出「应有 28 份报告，实到 28 份，
-其中 28 份点名吃下了种下的错」）。
+## 四、出题器：为什么是构造式，以及挖线索的尺子
 
-## 不承诺
+`js/engine/generate.js` 的顺序是**铺环 → 沿环序切区域 → 读满符号 → 挖线索**，不是"随机摆线索再修"。
+三个理由，每一个都是坏掉过的形状：
 
-以下说法**没有任何闸守住**，因此本仓的文档与页面都不主张它们（写了就是拿文案冒充测量）：
+1. **交替由构造保证**：把闭合圈按环序切成 R（偶数）段，段序就是环经过区域的次序，于是
+   "沿环月·日交替"在建盘那一刻成立，不需要事后修。反过来做（先分区再修符号）会造出大量
+   无法闭合的题面，而且失败时说不清是区域的锅还是符号的锅。
+2. **符号取极大化**：环经过的格写本区域的符号，环**外**的格写**相反**符号。于是玩家看到的每一条
+   线索都是"这个区不能是另一边"的证据，而不是背景噪声。这直接决定判据 2 买不买得起——线索给少了
+   铅笔推不满，给多了没有挖的意义。
+3. **环外的格挂到相邻区域**：它们碰不到边界穿越计数，所以"每区恰好穿两次"仍然成立，区域也仍是
+   环上的一段连续路。挂不上（四周都是未分配格）就整盘作废（`orphan cells`），不硬塞。
 
-- **音效没有证据。** `js/audio/synth.js` 被 `js/main.js:9` import，可是全仓唯一与声音有关的断言是
-  `设置退回默认`（`tools/scenarios.js:453`）读到的 `sound: true`。没有任何闸观察到一次发声。
-  因此「音效由 WebAudio 合成」不写进 README。
-- **「零美术/零资产文件」没有计数闸。** CI 的 `Entry files exist` 只查 `index.html` 里有
-  `<canvas`、`js/main.js`、`hebi` 三个记号（`.github/workflows/ci.yml:49`）；
-  Pages 只上传 `index.html`、`css`、`js`（`.github/workflows/pages.yml:29`、
-  `.github/workflows/pages.yml:30`）。本轮 `find` 没找到 png/mp3/wav/svg/woff，但这是**一次人工观察**。
-- **10 条铅笔规则是否每条都真的会开火，没量。** `js/engine/pencil.js:14` 把「8x8 以上推不完」
-  归因到 `P0-区` 这条禁用，并指名要 DESIGN 写「不承诺」——这条**归因**没有任何闸量过。
-  实测到的只有：`hint` 腿本轮用完一局 6×6 只开了 4 条
-  （`P1-链 / P4-零 / P4-独 / P2-围`，`tools/scenarios.js:295` 把它们随断言一起打出来），
-  且每条名字都过 `/^P[0-4]-/`（`tools/scenarios.js:296`）；
-  页面「你会用到的几条」列的是 4 个规则族（`index.html:61`–`index.html:66`），
-  没有闸检查这份清单与 `js/engine/pencil.js:3`–`js/engine/pencil.js:12` 的实现集是否一致。
-- **`generate.js` 头部注释里的历史对照数**（`js/engine/generate.js:2`–`js/engine/generate.js:5` 的
-  `2/60`、`396 次计数 ≈ 19 s`、`20/30 · 19 ms`，`js/engine/generate.js:25` 的 `0/3`，
-  `js/engine/generate.js:78` 的 `74/77`）是**写代码时的判断记录**，没有任何闸读它们，本轮也不复现。
-  它们留在原处当注释，不搬进文档。同一文件 `js/engine/generate.js:147` 那句**自称实测**的步数阶梯
-  不在此列——它归 B6 管，本轮改成 `32 → 49 → 86` 就是为了对上。
-- **移动端只证到「几何没坏」。** `touch` 腿在 390×844 / dpr 3 覆写下发真触屏事件并读回覆写在位
-  （`tools/playtest.cjs:335`、`tools/playtest.cjs:346`），但没有 iOS/Android 真机、
-  也没有任何闸量过移动端帧率或手感。
-- **计时类断言只保证方向，不保证快。** 计时腿断言的是「续局后 `elapsedMs` 不小于存档基线」
-  （`tools/scenarios.js:432`），本轮读到 `149 ms` 起步的续局；没有任何闸承诺某一档多少毫秒内推完。
+**挖线索的尺子是 forced 进度，不是解数**。每拿掉一条线索，必须**同时**满足：铅笔仍能从空盘 0 猜推满
+（判据 2），且计数器仍说 1 解（判据 1）；两个都过才真拿掉。拿"解数"当尺子（挖到刚好还唯一为止）
+会把"证唯一"的代价付在搜索里，而且它买不到"推得满"——一张唯一解的盘完全可以推不出来。
+立项阶段两种目标函数对照过（见 README 的**不承诺**：这一组对照数是写代码时的判断记录，本轮不复现）。
+
+**出货前不可省的一刀**：`dig()` 之后 `bd` 已经不是任何解的答案盘（它被改成了题面）。所以 `build()`
+在返回前把**计数器那张**（`cnt.first`，也就是被证明是唯一的解）覆盖回 `answer`，再整盘
+`satisfies()` 复核一次。少这一刀，页面印出来的"答案"可能是生成器自己记的那条环，而它和挖完线索的
+题面已经不是同一张盘了——那种盘照样能"判胜"，因为它对着的是一个不存在的题面。
+四条退货原因（`counter stopped during dig` / `not unique` / `pencil stalls on the dug board` /
+`answer illegal`）都是这条事故的具体形状，`tools/engine-test.mjs` 的 **A7** 负责构造出该被拒收的盘，
+并断言这条闸不是空转。
+
+## 五、判定的先后：warn 与 error 不是一把尺
+
+`checks()`（`js/engine/rules.js:66`）给每条结论标 `level`。线头类（度数 1、单边不对称、空盘）是 `warn`，
+区域类（穿两次、符号、交替、分段）是 `error`。原因是**半条环上的穿越次数是没有意义的读数**：
+一条还没接通的线上，"这个区被穿了几次"必然不等于 2，于是满屏红会淹没真正接不通的那一格。
+`Game.report()`（`js/ui/game.js:55`）因此在线头在场时只念线头。
+
+这条先后本身是可测的，而且是**两向**测的：`A3` 的近邻反例里，断头盘必须只报 `warn` 级
+（区域条款此时必须闭嘴），而两段闭合环必须让 `disjoint` 以 `error` 级说话（度数和对称都挑不出错，
+只有它能报）。反过来，"整格擦空"这张反例红的是 `asym` 而不是 `degree`——这不是笔误，是
+`checks()` 在结构类违规处提前收工的直接读数，`A3` 里把它写成断言而不是当 bug 修掉。
+
+**判胜只认 `error` 级为 0**（`empty`/线头在开局那一帧是红点但不闪一屏红）。
+
+## 六、成本：菜单为什么只有这三档，为什么用节点数当尺
+
+尺寸菜单是被**判据 1 的预算**决定的。一次穷举的节点预算 `CAP_WORK = 2000000`，挖一整盘的总花费上限
+`DIG_WORK = CAP_WORK * 8 = 16000000`（`js/engine/generate.js:19`），画不出合法盘就顺延下一个 seed，
+最多 `MAX_ATTEMPTS = 24` 次（`js/engine/generate.js:173`）。
+
+**为什么拿节点数当闸而只把 ms 当方向**：节点数是**确定性**的量——同一个 seed 在任何一台机器上烧掉
+同样的节点。ms 随机器漂，如果 ms 参与判定，那"换一台机器"就等于悄悄改了承诺：慢机器上同一把 seed
+会因为超预算而画成**另一张盘**。所以 `B1`/`B5b` 只卡 ms 的上界与单调方向，而 `B1b`/`B5` 把节点数钉成等式。
+这一条有闸：菜单每档写进 `tiers.js` 的 `work` 读数由 `B5` 在 15 张样本上重测成等式，
+被淘汰档的 `samples/ship/nodesMed/nodesMax/fails` 由 `B6` 在**当前这棵树**上重量一遍（`OVER_N` 固定 5，
+不跟着 `SAMPLES` 漂，否则分母一漂等式就没意义）。
+
+**8×8 与 10×10 不是"暂时没做"**。8×8 的问题是按一次"换一局"要连着退货才拿得到一张盘（实测 5 张里出 3 张，
+退货原因是 `not unique (6)` 与 `pencil stalls on the dug board`）；10×10 的问题更结构性：它出得了货，
+但有一张的最坏读数已经贴到 `CAP_WORK` 边上（97%）。再深一点，计数器就只能返回"没证完"，
+而"没证完"和"只有一个解"在玩家那一侧长得一模一样——判据 1 不允许说的那句谎正是这个。
+所以这两档被请出菜单，并把由字段拼出来的那句理由原样印在选尺寸页上（`eliminatedLine()`，
+浏览器 `core` 腿比对页面文本，`D5` 比对文档与代码）。
+
+**撞预算时先改挑格启发式，再说"成本无界"**。这是上一批仓里学到的：把长尾归因给题面之前，
+先换一版挑格顺序逐张对照。本仓的 `dig()` 目前按打乱的格序试挖，`spent` 超 `DIG_WORK` 就收手；
+本轮 15×3 张没有一张撞预算（`B1b` 的最坏读数 `1801534 < 2000000` 是判据 1 那一次穷举的数）。
+
+## 七、难度轴：为什么是"用规次数"而不是"推理轮数"
+
+`B3` 卡三档的**用规次数**（`cuts` = 铅笔在这张盘上用规则的次数总和）中位单调，`B3b` 进一步要求
+首末两档的区间不重叠（入门档 p95 < 进阶档 p10）。为什么不用"推理轮数"：一轮就是"把所有规则扫一遍"，
+它的读数只有个位数（本轮 5 / 6 / 7），带与带必然重叠，中位数单调可以靠一张离群盘蒙出来。
+`B3c` 仍然卡首末两档的轮数不重合，但它只是下限，不当难度轴。
+
+**区间不重叠而不是中位单调**才是这条轴为真的形状：`B3b` 要求这批样本里最难的入门盘也比最简单的进阶盘短。
+样本一少这条就脆，所以 `balance.mjs` 的 `N` 是接到 `SAMPLES` 环境变量上的（CI 用 15）——
+那个旋钮必须是真接上的，`D10b` 拿子进程探针验它（`SAMPLES=3` 必须打印"× 3 张"）。
+
+## 八、铅笔不许说谎：`B4` 与它的两次失败写法
+
+判据 2 说的是"出货盘推得满"。它**没有**说"推得满的盘就是唯一的"——而那才是玩家真正会撞上的失败：
+一张有多个解的盘被铅笔"推满"了，界面上就会对两个不同的答案各亮一次"完成"。`B4` 卡的就是这一条。
+
+这一条前后写过三版，前两版是**永远绿的灯**，值得记下来：
+- 第一版"少挖几条线索"造多解盘：生产那把刀每挖一条都要求铅笔仍推得满，于是提前收手的盘**照样唯一**，
+  12 张样本一张多解都没有。
+- 第二版"拿唯一性当尺子往下挖"：每挖深一点计数器就撞预算，于是"读不出来"被当成了"还是唯一"，
+  6 张样本又全数空转。
+- 现在的造法打在点上：先按生产那把刀挖到底（出货盘），再**只多拿掉一条线索**。这张盘是
+  "差一条线索就多解"的盘，计数器说 ≥2 解，铅笔在它上面必须推不满。并配一条反空转红线
+  （样本里必须真的含够多张多解盘），否则 `B4` 会在样本为空时绿着。
+
+## 九、浏览器闸：为什么事件必须从 CDP 派发，为什么读 DOM 不读标志
+
+`tools/verify.sh` 在两种 URL 形态（根 `/` 与 Pages 的 `/z-biz-game-moonsun-cos/` 前缀）上各跑一遍同一套腿，
+形态与腿的乘积就是报告的分母，而这个分母由 `scenarios_for()` 现场算（写两张表就会漂）。
+所有断言读的是 **DOM 文本、几何、画布像素**，不读 `game.won` 这类内部标志位——标志位置对了而画面是错的，
+玩家看到的是错的那一个。
+
+- **真事件**：`Input.dispatchMouseEvent` / `Input.dispatchTouchEvent` / `Input.dispatchKeyEvent`，
+  不是 `element.click()`。指针腿**先**断言命中盒（`elementFromPoint` 反查到的就是那格/那个控件），
+  再谈点不点得动——否则"点了没反应"分不清是游戏的锅还是坐标系的锅（画布内坐标与视口坐标混过一次，
+  那次症状是每条断言都在红，而盘面看起来完全正常）。
+- **键盘取证**：空格的"翻页"在 Blink 里是 **keypress 阶段的默认动作**，只在 `keydown` 上
+  `preventDefault()` 挡不住它。取证做法是先把计数器装在页面上、并确认页面真的可滚
+  （本轮观测：不挡时一次空格把文档滚走 703 px，两个阶段都挡之后是 0 px），否则"scrollY 没动"
+  既可能是挡得好也可能是根本没得滚。键盘腿逐键断言到达数 `1 seen/1 handled/0 repeat`：
+  `repeat` 用来区分"浏览器把一次按键发了 N 遍"和"游戏漏收"。焦点坐在按钮/下拉框上时键盘**归控件**
+  （`onControl`），不挡这一层的话一次空格会既按下按钮又改盘面。
+- **触屏**：`Emulation.setDeviceMetricsOverride` 只活在发起它的那条会话里，所以覆写之后必须**读回**
+  `innerWidth 390 / devicePixelRatio 3` 当证人，并把断言命名成"覆写在位"而不是"这是手机"。
+  真机没有量过，这条在**不承诺**里。
+- **续局**：证人（`timeOrigin`、文档身份哨兵、存档读数）必须在 node 派发任何导航**之前**抄走；
+  只差一个 `#hash` 的 URL 是 same-document navigation，`timeOrigin` 与文档身份都不许变——
+  所以 `nav` 那条对照腿专门盯这一点，而续局腿必须自己做一次真重载。
+- **存档**：`localStorage` 里只有 seed + 笔迹 + 时钟，没有盘面对。恢复前用尺寸 + 区域编号 + 符号行
+  算出的指纹对账，对不上就作废开新局并告诉玩家。种坏档那一步的顺序是有讲究的：先真重载拿到干净文档，
+  再把坏 payload 种下去——反过来做的话重载那一下的 `pagehide` 会让旧文档把自己那局合法存档写回去，
+  刚种下的坏档在 scenario 读到它之前就被覆写了（那一腿于是变成"什么都没测"的绿）。
+- **阴性自证**：`GATE_SELFTEST=1` 时每一份报告都被加一条注定错的期望，rc 必须非 0，且**每一份**报告
+  都必须点名吃下自己那条（分母由 `scenarios_for` 现场算）。"整体 rc 非 0"不能证明每一条都会红。
+
+## 十、已知风险与下一轮该补的
+
+- `MAX_ATTEMPTS = 24` 是硬上限：某一档在某台机器上连续 24 把 seed 都画不出合法盘，界面会显示失败原因
+  而不是死转。本轮没有观察到（三档出货率 100%），但"没有观察到"不等于"不会"。
+- 铅笔的 13 条规则**是否完备**（对任意合法 Moonsun 盘都能 0 猜推满）没有证明，也不需要证明——
+  需要的是**每一张出货盘**都推得满，而那是 A4/A6 的准入条件。没量过的是"多少比例的人造盘推得满"。
+- `strictLabel` 只由 A2 的 1/3 钉住。如果哪天题面生成器造出一张两种读法**都**唯一的盘，A2 照绿，
+  而那句话的意义就变成"这一张题面上两种读法的差别"。要防的是把这条读成定理，所以这里写明它不是。
+- 区域由环序切段 + 环外格吸附生成，可能出现**形状很难看**（一个区域由几块不相连的格组成）的盘。
+  本轮没有为此加美学约束，因为美学没有判据可以钉，而加一条会改变成本分布。
+
+## 十一、不承诺
+
+下面这些话目前**没有**任何命令会因为它们不成立而红。写在这里而不是删掉，是因为删掉等于假装没说过。
+
+- 所有 ms 都是本机读数。没有任何闸承诺某一档在多少毫秒内出完题；`B1` 卡的是**本轮**这台机器上的 p95。
+- 慢机器上会怎样没有量过。`7×7` 本轮 p95 `5592 ms` 是这台机器上的读数；把 ms 参与判定会改变出货的盘形，
+  所以我们故意不这么做（见第六节）。
+- 音效根本没有实现，因此也没有任何闸观察到一次发声。
+- "13 条命名规则每条都会开火"是在三档 × 12 张这批样本上量的（A5 的直方图），不是对任意盘的定理。
+- 移动端只证到"几何没坏"（覆写在位 + 命中盒 + 不越界），没有真机、没有触屏浏览器、没有系统字体测量。
+- 无障碍只做到"有 `aria-label`、焦点可见、`prefers-reduced-motion` 被读"，没有用读屏器实际走过一遍。
+- 立项阶段两种挖线索目标函数的对照数（按解数挖 vs 按 forced 挖）是写代码时的判断记录，本轮不复现。
+- `generate.js` 头部注释里的历史判断（为什么沿环序切段、为什么符号极大化）是设计说明，不是读数，
+  没有任何闸复现它们；被闸读的是这些选择造成的**结果**（出货盘合法、唯一、推得满）。
+- 官方例题的逐格抄件由人从 Nikoli 页面抄来。闸能证明"这份抄件合法、且两条路在它上面会合"
+  （A1 的前两条），不能证明"抄件和印刷品一字不差"。
+- 破坏试验台账证明的是 D 系列每一条**会**红，不是它们**一直**红；台账跑在定稿的那棵树上，
+  之后任何一次改动都可能让某把刀改变落点，所以台账必须跟着改动重跑，而不是被引用。
