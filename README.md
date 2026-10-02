@@ -208,6 +208,12 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 否则「scrollY 没动」既可能是挡得好也可能是根本没得滚；触屏腿自己声明并读回移动覆写
 `innerWidth 390 / dpr 3`——没有读回，"移动端"就只是 node 参数里一个字符串。
 
+这条闸第一次上 CI 就抓到一条**本机蒙过去**的：`layout` 腿判"版面上每个按钮的点击盒都够手指"，
+而那个 link 按钮的盒高当时由字体度量决定——本机（macOS）量到 28 以上、CI 的 Ubuntu runner 量到
+**19 px**，两种 URL 形态各红一次（`_tmp-moonsun-ci-browser.log`）。修的是产品不是闸：`css/game.css`
+把 `min-height: 2rem` 写死，28 这个阈值一个像素没动。教训写在 `DESIGN.md` 第九节：
+一条按像素判几何的断言，只要它的被测值来自字体度量，就还没被证明。
+
 ### `npm test` 的分尺寸读数（`tools/engine-test.mjs`，默认 12 张/档）
 
 `A4–A6 出货盘逐张对账（菜单三档 × 12 张）` 三档全出货、一张都没退货。官方 5×5 例题上

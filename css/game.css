@@ -54,7 +54,10 @@ button:active { transform: scale(0.97); }
 button.primary { background: linear-gradient(180deg, rgba(76, 217, 176, 0.24), rgba(76, 217, 176, 0.1)); border-color: var(--accent); }
 button.ghost { background: transparent; color: var(--ink-dim); }
 button[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
-button.link { background: none; border: 0; color: var(--info); text-decoration: underline; padding: 0; font-size: 12px; }
+/* min-height 是给手指的，不是给字形的：不写它，这个盒的高度就由**字体度量**决定——
+   本机 macOS 的 `normal` 行高把 12px 撑到 28 以上、闸就这样蒙过去了，
+   CI 的 Ubuntu 字体给的是 19px，同一个断言当场红（layout 腿，两种 URL 形态都红）。 */
+button.link { background: none; border: 0; color: var(--info); text-decoration: underline; padding: 0; font-size: 12px; min-height: 2rem; display: inline-flex; align-items: center; }
 :root.reduce-motion button, :root.reduce-motion canvas.won { transition: none; animation: none; }
 
 .rules-note, .keyhint { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-faint); }
