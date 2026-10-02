@@ -30,6 +30,8 @@ let timer = null;
 let pulse = null;
 let pencil = null;          // 这一盘的铅笔推导结果（第一次按提示时算，之后复用）
 let busy = false;
+let said = null;            // 状态行上下一句要念的话（提示／作废），见 paintStatus
+const say = (m) => { said = m; $('#state-line').textContent = m; };
 
 // ── 面板文案：规则表从引擎拿，不在 HTML 里另抄一份 ──────────────────────────
 // README 的条款表和这里读的是同一张 CLAUSE_TEXT/RULE_TEXT，doctest 逐条对账；
@@ -102,15 +104,23 @@ function paintStatus() {
   $('#stat-stubs').textContent = stubs;
   $('#stat-bad').textContent = v.filter((x) => x.level === 'error').length;
   $('#stat-moves').textContent = g.moves.length;
-  $('#stat-verify').textContent = g.status === 'won' ? '合法' : v.length ? `${v.length} 处不合` : '还差线索';
+  // 「引擎说」只数 error 级：一格没画的空盘在 report() 里有一条 warn（还没画），把它念成
+  // 「1 处不合」等于开局就告诉玩家你错了。warn 归线头那一格念。
+  const errs = v.filter((x) => x.level === 'error').length;
+  $('#stat-verify').textContent = g.status === 'won' ? '合法' : errs ? `${errs} 处不合` : '还差线索';
   const line = $('#state-line');
+  // 「提示」和「存档作废」那两句话是 render() 之前的任何一次落笔都不会再说一遍的：
+  // 直接写 textContent 会被这里的状态行覆盖，那等于提示只有画面上的一个框、没有解释。
+  // 所以把它们交给 say()，由状态行的唯一写者在本帧念完之后擦掉。
   if (busy) line.textContent = '出题中：引擎正在铺环、切区域、挖线索，并用两道判据验这一张盘…';
+  else if (said) { line.textContent = said; said = null; }
   else if (g.status === 'won') line.textContent = `成了。一条闭合的环，每个区域穿两次，沿环月·日交替——${fmtTime(elapsedMs)}，${g.moves.length} 步。`;
   else if (!v.length) line.textContent = '环闭合了；每一个区域都要被穿两次，沿环月·日交替。';
-  else line.textContent = `${{ degree: '这一格的线不是两条', asym: '这头和那头没接上', disjoint: '环还没连成一圈', empty: '还没画' }[v[0].code] || CLAUSE_TEXT[v[0].code]}`;
-  const c = v[0] && v[0].cells.length ? v[0].cells[0] : -1;
-  const at = c >= 0 ? `（第 ${(c / g.cols | 0) + 1} 行第 ${c % g.cols + 1} 格起）` : '';
-  line.textContent += at;
+  else {
+    const c = v[0].cells.length ? v[0].cells[0] : -1;
+    const at = c >= 0 ? `（第 ${(c / g.cols | 0) + 1} 行第 ${c % g.cols + 1} 格起）` : '';
+    line.textContent = `${{ degree: '这一格的线不是两条', asym: '这头和那头没接上', disjoint: '环还没连成一圈', empty: '还没画' }[v[0].code] || CLAUSE_TEXT[v[0].code]}${at}`;
+  }
   $('#sr-cell').textContent = `光标在第 ${(game.cursor / g.cols | 0) + 1} 行第 ${game.cursor % g.cols + 1} 格，形状 ${SHAPE_NAME[game.st[game.cursor]]}`;
 }
 
@@ -146,8 +156,10 @@ async function newGame({ sizeKey = null, seed = null, resumeFrom = null } = {}) 
     resumed = Store.resume(p);
     if (resumed && !game.restore(resumed)) resumed = null;
   }
+  // 时钟同样是存下来的东西：续局之后从 00:00 重新数，等于界面在说一局两小时的棋只走了两秒。
+  if (resumed) elapsedMs = typeof resumed.elapsedMs === 'number' ? resumed.elapsedMs : 0;
   if (!resumed && resumeFrom) {
-    $('#state-line').textContent = '存档里的盘面和引擎重画出来的对不上，已作废存档、开了一局新的。';
+    say('存档里的盘面和引擎重画出来的对不上，已作废存档、开了一局新的。');
     Store.clear();
   }
   busy = false;
@@ -204,7 +216,7 @@ function hint() {
   if (!pencil) pencil = solve(toView(puzzle));
   if (!pencil.done) {
     pulse = { cell: null, until: 0, color: Palette.error };
-    $('#state-line').textContent = `铅笔（具名规则）在这盘上推不动了，剩下的要靠猜——这种局不该出现在出货里（判据 2）。`;
+    say('铅笔（具名规则）在这盘上推不动了，剩下的要靠猜——这种局不该出现在出货里（判据 2）。');
     render();
     return;
   }
@@ -218,13 +230,13 @@ function hint() {
     break;
   }
   if (cell < 0) {
-    $('#state-line').textContent = '铅笔的每一步你都已经落笔了——那就只剩把它接起来。';
+    say('铅笔的每一步你都已经落笔了——那就只剩把它接起来。');
     return;
   }
   game.hints++;
   game.cursor = cell;
   pulse = { cell, until: Date.now() + 1800, color: Palette.hint };
-  $('#state-line').textContent = `看第 ${(cell / game.cols | 0) + 1} 行第 ${(cell % game.cols) + 1} 格：${why}`;
+  say(`看第 ${(cell / game.cols | 0) + 1} 行第 ${(cell % game.cols) + 1} 格：${why}`);
   render();
 }
 

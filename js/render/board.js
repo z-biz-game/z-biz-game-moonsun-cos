@@ -73,10 +73,20 @@ export class BoardView {
     if (kind === 'stroke') return { x: r.cx + cell * 0.4 * DC[d], y: r.cy + cell * 0.4 * DR[d] };
     if (kind === 'cap') return { x: r.cx + cell * 0.68 * DC[d], y: r.cy + cell * 0.68 * DR[d] };
     if (kind === 'border') {
-      // 落在两格共享的那条边上，但沿边方向挪开 0.30 格：环带的半宽只有 0.08 格，
+      // 环跨过共享边就在这一边的**中点**：strokeShape 用的也是这个点，所以相邻两格各自的
+      // 短线在同一点接上，不会在边界上拧出一个折角。
+      return { x: r.cx + cell * 0.5 * DC[d], y: r.cy + cell * 0.5 * DR[d] };
+    }
+    if (kind === 'dash') {
+      // 区域粗边的取样位：同一条边上，但沿边挪开 0.30 格。环带的半宽只有 0.08 格，
       // 所以这个点上只可能是网格线、区域粗边、违规红，绝不可能是环线。
-      const t = (d === UP || d === DOWN) ? 0 : 1;
-      return { x: r.cx + cell * (0.5 * DC[d] + 0.3 * t), y: r.cy + cell * (0.5 * DR[d] + 0.3 * (1 - t)) };
+      // 沿边方向是 d 的垂线，所以位移落在 DC 还是 DR 上要按 d 的轴向分派——写反一次
+      // 就会把取样点挪进格子里（那里既没有粗边也没有网格线，量到的永远是盘底）。
+      const along = (d === UP || d === DOWN) ? 'x' : 'y';
+      return {
+        x: r.cx + cell * (along === 'x' ? 0.3 : 0.5 * DC[d]),
+        y: r.cy + cell * (along === 'x' ? 0.5 * DR[d] : 0.3),
+      };
     }
     throw new Error('unknown sample kind: ' + kind);
   }
@@ -161,12 +171,14 @@ export class BoardView {
   strokeBorder(ctx, i, d) {
     const p = this.point(i, 'border', d);
     const { cell } = this.geo;
-    const along = (d === UP || d === DOWN) ? 'v' : 'h';
-    const w = Math.max(2, cell * Board.borderRoom);
-    ctx.lineWidth = w;
+    // 整条共享边都描上粗边：区域边界是这道题的骨架，它必须读成一条连续的墙，
+    // 而不是边界中点旁边的一段短划。沿边方向同样是 d 的垂线。
+    const vertical = d === LEFT || d === RIGHT;
+    const half = cell / 2;
+    ctx.lineWidth = Math.max(2, cell * Board.borderRoom);
     ctx.beginPath();
-    if (along === 'v') { ctx.moveTo(p.x, p.y - cell * 0.2); ctx.lineTo(p.x, p.y + cell * 0.2); }
-    else { ctx.moveTo(p.x - cell * 0.2, p.y); ctx.lineTo(p.x + cell * 0.2, p.y); }
+    if (vertical) { ctx.moveTo(p.x, p.y - half); ctx.lineTo(p.x, p.y + half); }
+    else { ctx.moveTo(p.x - half, p.y); ctx.lineTo(p.x + half, p.y); }
     ctx.stroke();
   }
 
