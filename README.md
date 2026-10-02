@@ -157,12 +157,12 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 
 | 命令 | 它比的是什么 | 本轮读数（rc 写进工件，不是管道尾巴） |
 | --- | --- | --- |
-| `npm run check` | 逐文件 `node --check` + `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 18 files, 108 named imports, 0 broken`，`CHECK_RC=0` |
+| `npm run check` | 逐文件 `node --check` + `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 19 files, 121 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
 | `npm test` → `node tools/engine-test.mjs` | A0–A8：两条路独立、官方例题会合、歧义的 1/3、八条条款的近邻反例、三档 × 12 张出货不变量、无死规则、挖坏的盘必被拒收、seed 确定性 | `engine-test: 294 条通过 · 0 条失败`，`ENGINE_RC=0` |
-| `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签 | `rows: 46 fail: 0`，`DOCTEST_RC=0` |
+| `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、本命令自己的合计行数 | `rows: 88 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
 | `npm run balance` → `node tools/balance.mjs` | 出货率、成本 p95、难度阶梯、铅笔的选择性（对着多解盘）、菜单与淘汰理由里的「实测」 | `合计红线 0 条破口`，`BALANCE_RC=0` |
 | `bash tools/verify.sh` | 真 Chrome + 裸 CDP 真事件，读 DOM 文本/几何与画布像素，不读内部标志位 | `=== ALL GREEN ===`，662 条断言 / 0 失败，`VERIFY_RC=0` |
-| `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 18 · 未逼红 0`，`SAB_RC=0` |
+| `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 21 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
 | `GATE_SELFTEST=1 bash tools/verify.sh` | 每一份报告都必须吃下一条注定错的期望 | `rc=1`、30 份报告 30 份点名红，`SELFTEST_RC=1` |
 
 上面这一列的 rc 全写在自己的日志里（浏览器腿：`_tmp-moonsun-gate-full3.log`；阴性自证：
@@ -259,8 +259,8 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 331 条 · 合�
 | 赢了只能有一处说了算 | 浏览器 `win` / `play` 腿 | 幕布、状态行、存档 `won` 标记、拒绝再落子四处同一读数 | `13 / 16 条 0 失败` |
 | 两种 URL 形态都算数 | `tools/verify.sh` 的 preflight + 跨形态条数比对 | 前缀形态与根形态各自 serve 本仓字节；逐 tag 条数两形态相同 | `2 个形态 · 30 份报告` |
 | 闸自己会红——每一份报告都会红 | `GATE_SELFTEST=1` 那一步 | 分母由 `scenarios_for` 现场算，没种上错期望的报告点名 | `rc=1`、`30/30 点名` |
-| 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D16 那一整套等式 | `rows: 46 fail: 0` |
-| doctest 自己不是空转 | `node tools/sabotage.mjs` | 18 把刀逐类塞回代码，每把都必须红在**它点名的那条**断言上 | `逼红 18 · 未逼红 0` |
+| 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D18 那一整套等式（D17 现跑 wiring 比它打印的那一行，D18 把本命令自己的合计行数钉回文档） | `rows: 88 fail: 0` |
+| doctest 自己不是空转 | `node tools/sabotage.mjs` | 21 把刀逐类塞回代码（含 1 把对照组），每把都必须红在**它点名的那条**断言上 | `逼红 21 · 未逼红 0` |
 
 ## 破坏试验台账
 
@@ -269,39 +269,52 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 331 条 · 合�
 不算逼到。复原只用内存里读回的原始字节 `writeFileSync`，绝不借 git 命令，复原后逐字节回读比对；
 needle 在目标文件里必须恰好命中 1 次，对不上就判红不往下动。刀跑之前先跑**对照**：干净树上的
 doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。台账里的 rc 是从脚本读回来的真实读数，
-自钉回本文件之后幂等（干净重跑不再改写）。定稿后整轮重跑：`逼红 18 · 未逼红 0`（`_tmp-moonsun-sab.log`）。
+"实跑"那一格与两处「逼红 N · 未逼红 M」都由台架自己钉回本文件，钉对之后重跑不再改写。
+定稿后整轮重跑：`逼红 21 · 未逼红 0`（`_tmp-moonsun-sab.log`）。
 
 | 刀 | 改哪里 | 期望 | 实跑 | 咬到它的闸 |
 | --- | --- | --- | --- | --- |
-| K1 | `js/engine/tiers.js` 的 7×7 `work.med` 改成 1 | 红 | 红 `D1a` | `doctest` 的 D1（文档那行不再等于 TIERS 现值） |
-| K2 | README 三档表把 `7x7` 的 p95 改成 1801535 | 红 | 红 `D1b` | `doctest` 的 D1（改了文案没改代码，反向同样咬） |
-| K3 | README 规则表删掉 `N0_有边即在环` 那一行 | 红 | 红 `D3a` | `doctest` 的 D3（先数条数，再逐条比名字与句子） |
-| K4 | README 的 `N9_环序平衡` 句子改一个字 | 红 | 红 `D3` | `doctest` 的 D3（逐字等于 `RULE_TEXT`） |
-| K5 | `js/engine/pencil.js` 正文里 `N9_环序平衡` 那一次调用改名，清单里留着 | 红 | 红 `D3b` | `doctest` 的 D3b：数的是**剥掉注释之后**的正文——名字只活在清单里就是装饰 |
-| K6 | README 条款表 `symbol` 的文案改一个字 | 红 | 红 `D2` | `doctest` 的 D2（八条文逐字等于 `CLAUSE_TEXT`） |
-| K7 | `js/engine/rules.js` 的 `CLAUSE_ORDER` 尾部加一个 `'open'` | 红 | 红 `D2a` | `doctest` 的 D2（面板与文档都还是 8 行，代码变 9 行） |
-| K8 | README 的「腿 7 条」改成 8 | 红 | 红 `D6` | `doctest` 的 D6（分母从 `LEGS` 现算） |
-| K9 | `tools/verify.sh` 的 `LEGS` 默认值加一条 `foo` | 红 | 红 `D6` | `doctest` 的 D6（文档没跟着改） |
-| K10 | README 端口句的本地端口改成 5277 | 红 | 红 `D7` | `doctest` 的 D7（四处 HTTP 源 + 文档） |
-| K11 | `package.json` 的 `dev` 端口改成 5277 | 红 | 红 `D7a` | `doctest` 的 D7（接线改了形状也要被数到） |
-| K12 | README 的预算 2000000 改成 1000000 | 红 | 红 `D4` | `doctest` 的 D4（`CAP_WORK` / `DIG_WORK` / `MAX_ATTEMPTS` 三个数一起钉） |
-| K13 | README 的 8×8 淘汰句中位 `1,101,971` 改一个数字 | 红 | 红 `D5` | `doctest` 的 D5（页面那句逐字等于 `eliminatedLine`） |
-| K14 | `.github/workflows/ci.yml` 的 `SAMPLES: "15"` 改成 `"16"` | 红 | 红 `D10` | `doctest` 的 D10（CI 值 == 文档引用值 == 不设 env 的默认值） |
-| K15 | README 的每形态 331 改成 330 | 红 | 红 `D8` | `doctest` 的 D8（逐报告条数加起来必须等于它自己写的两个总数） |
-| K16 | `tools/scenarios.js` 的官方例题抄件挪动一格 | 红 | 红 `D11` | `doctest` 的 D11（浏览器腿那份拷贝逐字节等于 `tools/fixtures.mjs`） |
-| K17 | README 的 CI 覆盖表删掉 `doctest.mjs` 那一行 | 红 | 红 `D12b` | `doctest` 的 D12 反向：runner 里跑的门禁必须都被列出来 |
-| K18 | README 里一条行号引用的行数越界（把 `CAP_WORK` 那条的第 170 行改成第 9999 行） | 红 | 红 `D13` | `doctest` 的 D13（每一条行号引用都落在真实文件的行数内） |
-| E1 | `js/engine/pencil.js` 的 `RULE_TEXT` 里删掉 `N2_两越定边` 那一行 | 红，且要点名清单 | 红 `A0` | `engine-test` 的 A0：`RULE_ORDER` 与 `RULE_TEXT` 必须同集合 |
-| E2 | `js/engine/rules.js` 的 `CLAUSE_TEXT` 里把 `cross` 那行删掉 | 红，且要点名 code | 红 `A3` | `engine-test` 的 A3 双向覆盖：报得出 `note('cross'…)` 的必须有句子 |
-| N1 | README 的难点小节里插一句不承载任何数的散文 | 不该红 | 不红（`rows: 46 fail: 0`） | —（对照组：台账也得证明它不咬无关的话） |
+|  K1 | `js/engine/tiers.js` 的 7×7 `work.med` 改成 1 | 红 | 红 `D1 7x7` | `doctest` 的 D1（文档那行不再等于 TIERS 现值）  |
+|  K2 | README 三档表把 `7x7` 的 p95 改成 1801535 | 红 | 红 `D1 7x7` | `doctest` 的 D1（改了文案没改代码，反向同样咬）  |
+|  K3 | README 规则表删掉 `N0_有边即在环` 那一行 | 红 | 红 `D3a` | `doctest` 的 D3（先数条数，再逐条比名字与句子）  |
+|  K4 | README 的 `N9_环序平衡` 句子改一个字 | 红 | 红 `D3 N9_环序平衡` | `doctest` 的 D3（逐字等于 `RULE_TEXT`）  |
+|  K5 | `js/engine/pencil.js` 正文里 `N9_环序平衡` 那一次调用改名，清单里留着 | 红 | 待钉 | `doctest` 的 D3b：数的是**剥掉注释与两处声明之后**的正文——名字只活在清单里就是装饰（第一轮它空转过，见上面第一件事） |
+|  K6 | README 条款表 `symbol` 的文案改一个字 | 红 | 红 `D2 symbol` | `doctest` 的 D2（八条文逐字等于 `CLAUSE_TEXT`）  |
+|  K7 | `js/engine/rules.js` 的 `CLAUSE_ORDER` 尾部加一个 `'open'` | 红 | 红 `D2a` | `doctest` 的 D2（面板与文档都还是 8 行，代码变 9 行）  |
+|  K8 | README 的「腿 7 条」改成 8 | 红 | 红 `D6` | `doctest` 的 D6（分母从 `LEGS` 现算）  |
+|  K9 | `tools/verify.sh` 的 `LEGS` 默认值加一条 `foo` | 红 | 红 `D6e` | `doctest` 的 D6（文档没跟着改）  |
+|  K10 | README 端口句的本地端口改成 5277 | 红 | 红 `D7 verify.sh HTTP` | `doctest` 的 D7（六个端口来源 + 文档那句，逐源点名）  |
+|  K11 | `package.json` 的 `dev` 端口改成 5277 | 红 | 红 `D7 package.json dev` | `doctest` 的 D7（接线改了形状也要被数到：D7a 那一句「六个来源都解析到了」不许扑空）  |
+|  K12 | README 的预算 2000000 改成 1000000 | 红 | 红 `D4 文档写的穷举` | `doctest` 的 D4（`CAP_WORK` / `DIG_WORK` / `MAX_ATTEMPTS` 三个数一起钉）  |
+|  K13 | README 的 8×8 淘汰句中位 `1,101,971` 改一个数字 | 红 | 红 `D5 8x8` | `doctest` 的 D5（页面那句逐字等于 `eliminatedLine`）  |
+|  K14 | `.github/workflows/ci.yml` 的 `SAMPLES: "15"` 改成 `"16"` | 红 | 红 `D10 CI 的 SAMPLES` | `doctest` 的 D10（CI 值 == 文档引用值 == 不设 env 的默认值）  |
+|  K15 | README 的每形态 331 改成 330 | 红 | 红 `D8 文档列的逐报告条数` | `doctest` 的 D8（逐报告条数加起来必须等于它自己写的两个总数）  |
+|  K16 | `tools/scenarios.js` 的官方例题抄件挪动一格 | 红 | 红 `D11 拷贝逐字段等于` | `doctest` 的 D11（浏览器腿那份拷贝逐字节等于 `tools/fixtures.mjs`）  |
+|  K17 | README 的 CI 覆盖表删掉 `doctest.mjs` 那一行 | 红 | 红 `D12b ci.yml` | `doctest` 的 D12 反向：runner 里跑的门禁必须都被列出来  |
+|  K18 | README 里一条行号引用的行数越界（把 `CAP_WORK` 那条的第 170 行改成第 9999 行） | 红 | 红 `D13 每一条` | `doctest` 的 D13（每一条行号引用都落在真实文件的行数内）  |
+|  E1 | `js/engine/pencil.js` 的 `RULE_TEXT` 里删掉 `N2_两越定边` 那一行 | 红，且要点名清单 | 待钉 | `engine-test` 的 A0：`RULE_ORDER` 与 `RULE_TEXT` 必须同集合（名单改成手写之后这才是两个独立陈述，见上面第三件事）  |
+|  E2 | `js/engine/rules.js` 的 `CLAUSE_TEXT` 里把 `cross` 那行删掉 | 红，且要点名 code | 待钉 | `engine-test` 的 A3 双向覆盖：报得出 `note('cross'…)` 的必须有句子（第一轮它从隔壁 `CLAUSE_NAME` 蹭到了句子，见上面第二件事）  |
+|  N1 | README 的难点小节里插一句不承载任何数的散文 | 不该红 | 待钉 | —（对照组：台账也得证明它不咬无关的话）  |
 
-台账自己教的三件事：
+台账自己教的五件事（第一轮的读数在 `_tmp-moonsun-sab-r1.log`：那一轮 `逼红 19 · 未逼红 2`，
+没咬到的两把 K5/E2 都是**闸自己空转**，不是刀下得不对——这是这个台架最值钱的产出）：
 
-- K5 与 K7 是**同一条谎的两半**：名字只写在清单里、正文里没有实现，和实现还在而清单被改坏，
-  都必须各自红一次。只有 D3b 数的是剥掉注释后的正文，这两半才分得开。
-- K11 打的是**接线本身**：`package.json` 的 `dev` 端口是文档那句「本地 5276」的来源之一。它漂了而脚本没漂，
-  D7a 必须用「五个来源都解析到了」这一句点名，而不是让正则扑空、静默变绿。
-- D 系列每条等式都配一条反空转断言（解析到的条数 / 读到了那一行）。没有它们，
+- **K5 第一轮没红，因为名单改成手写之后 D3b 就空了。** `RULE_ORDER` 与 `RULE_TEXT` 是两条独立的声明，
+  D3b 只在"剥掉注释后的正文"里数名字，于是这两份声明自己就把 13 个名字凑够了次数。修法是再剥两处声明
+  （`dropDecl()`）并加一条 D3c「两处声明都被剥掉了」——剥不掉就说明这条又在空转。教训：一条数名字的断言，
+  它的搜索空间必须**不含**它自己声明名字的地方。
+- **E2 第一轮没红，因为 A3 从隔壁蹭到了句子。** A3 要在 `rules.js` 里比"报得出的 code"与"有句子的 code"，
+  而它把 `CLAUSE_TEXT` 之后直到文件尾的整段都当成了文案区——`CLAUSE_NAME` 的键就住在那儿，
+  删掉一句条文文案它照绿。修法：切到 `CLAUSE_TEXT` 那个块的 `\n};` 为止。
+- **E1 之前是恒等式。** `RULE_ORDER` 一度写成 `Object.keys(RULE_TEXT)`，那 A0 的"两边同集合"永远为真，
+  删一行规则文本它都不红。现在名单是手写的，两边各漂一半都会红——自我比较证明不了任何事。
+- **台架也咬过自己一次。** 它把"实跑"那一格重写成 `|  K1 |`（多一个空格），而它自己的匹配只认 `| K1 |`，
+  于是第二轮报"台账里没有 K1 这一行"退出。写者和读者对同一个形状各写了一份，就得让匹配宽松、
+  重写出单一形状；并且这次让它**当场红**而不是静默跳过，否则"没人收这一轮的数"就又是一条空转。
+- **对照组 N1 与反空转是同一件事的两面。** N1 插一句不承载数的纯散文，闸必须照绿；
+  而 K11 打的是**接线本身**（`package.json` 的 `dev` 端口就是文档那句「本地 5276」的来源之一），
+  它漂了而脚本没漂时，D7a 必须用「六个来源都解析到了」点名，而不是让正则扑空、静默变绿。
+  D 系列每条等式都配这样一条反空转断言（解析到的条数 / 读到了那一行）——没有它们，
   「文档没写这一行」和「文档写的等于代码」在 rc 上长得一模一样。
 
 ## 不承诺

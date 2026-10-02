@@ -101,13 +101,25 @@ for (let k = 0; k < RULE_ORDER.length; k++) {
   const got = r ? `${r[0]} / ${r[1]}` : '这一行不在';
   ok(!!r && got === `\`${name}\` / ${RULE_TEXT[name]}`, `D3 ${name} 第 ${k + 1} 行逐字等于 RULE_TEXT`, got);
 }
-// 名字必须出现在**非注释行**里：整份文件一起数会被 RULE_TEXT 那行声明凑够次数，
-// 于是"每条都真的在正文里被用到"这句标签就在说谎——清单里挂着、正文里没有实现，
-// 正是 A5 之外第二种"装饰规则"的形状。
-const PENCIL_BODY = PENCIL.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-const ghost = RULE_ORDER.filter((n) => PENCIL_BODY.split(n).length - 1 < 1);
-ok(ghost.length === 0, 'D3b 每条规则名都不只活在清单里（剥掉注释的正文里各出现 ≥1 次）',
-  ghost.length ? `只有声明没有实现：${ghost.join(' ')}` : `${RULE_ORDER.length} 条名字在正文里各出现 ≥1 次`);
+// 名字必须出现在**正文的调用位**上：只数非注释行是不够的——RULE_TEXT 的键行与 RULE_ORDER
+// 的名单行本身就是非注释行，光靠"被列出来"就能凑够次数，于是"每条都真的被实现引用"这句
+// 标签会在自己眼皮下说谎（这一版就是被 K5 咬出来的：名单手写之后，正文里再没有实现也数得满）。
+const dropDecl = (lines, startPrefix, isEnd) => {
+  const a = lines.findIndex((l) => l.startsWith(startPrefix));
+  if (a < 0) return { lines, found: false };
+  let b = a;
+  while (b < lines.length && !isEnd(lines[b])) b++;
+  return { lines: lines.slice(0, a).concat(lines.slice(b + 1)), found: b < lines.length };
+};
+const PEN_LINES = PENCIL.split('\n').filter((l) => !/^\s*\/\//.test(l));
+const dText = dropDecl(PEN_LINES, 'export const RULE_TEXT = {', (l) => l === '};');
+const dOrder = dropDecl(dText.lines, 'export const RULE_ORDER =', (l) => l.trim().endsWith('];'));
+const PENCIL_IMPL = dOrder.lines.join('\n');
+ok(dText.found && dOrder.found, 'D3c RULE_TEXT 与 RULE_ORDER 两处声明都被剥掉了（剥不掉＝这一条在空转）',
+  `RULE_TEXT ${dText.found ? '剥掉' : '没定位到'} · RULE_ORDER ${dOrder.found ? '剥掉' : '没定位到'} · 正文剩 ${dOrder.lines.length} 行`);
+const ghost = RULE_ORDER.filter((n) => PENCIL_IMPL.split(n).length - 1 < 1);
+ok(ghost.length === 0, 'D3b 每条规则名都被正文引用（剥掉注释与两处声明之后仍各出现 ≥1 次）',
+  ghost.length ? `只有名单没有实现：${ghost.join(' ')}` : `${RULE_ORDER.length} 条名字在调用位上各出现 ≥1 次`);
 
 // ── D4 三个预算数：文档写的就是代码里的现在值 ────────────────────────────────
 console.log('D4 预算');
@@ -334,6 +346,41 @@ const pair = (src, docs, prefix, label, count) => {
 };
 pair(BAL, DOCS, 'B', 'D15', 9);
 pair(ET, DOCS, 'A', 'D16', 9);
+
+// ── D17 wiring 门禁的自述：文档那一行必须等于 tools/wiring.mjs 此刻的打印 ─────────
+// 这是一条"活的"等式：它真的把那个门禁跑一遍，而不是比文档和某个手抄表。
+// 19 files / 121 imports 这类数会随文件增删漂，漂了就该红，而不是等下次有人看见。
+const wire = await new Promise((resolve) => {
+  const child = spawn(process.execPath, [join(ROOT, 'tools/wiring.mjs')]);
+  let buf = '';
+  const timer = setTimeout(() => { child.kill('SIGKILL'); resolve(buf || '(no output)'); }, 30000);
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (d) => { buf += d; });
+  child.on('close', () => { clearTimeout(timer); resolve(buf); });
+});
+const wireLive = (wire.match(/^wiring: [^\n]*broken$/m) || [])[0];
+const wireDoc = [...DOCS.matchAll(/wiring: [^\n`|]*broken/g)].map((m) => m[0]);
+ok(!!wireLive && /^\w+: \d+ files, \d+ named imports/.test(wireLive),
+  'D17a tools/wiring.mjs 真的打印了一行汇总（读不到＝它改了形状，下面的比对是空的）',
+  wireLive || wire.slice(0, 90).replace(/\n/g, '⏎'));
+ok(wireDoc.length >= 1, 'D17b 文档里抄了那一行（一处都没抄＝这个数没人钉，别指望它漂了会红）',
+  `${wireDoc.length} 处`);
+ok(wireDoc.length >= 1 && wireDoc.every((s) => s === wireLive),
+  'D17 文档抄的 wiring 汇总逐字等于现跑出来的那一行',
+  `${wireDoc.join(' ∥ ') || '(文档没抄)'} vs 现跑 ${wireLive || '(没读到)'}`);
+
+// ── D18 本命令自己的合计行数：文档抄的必须等于这一次跑出来的 ────────────────────
+// 这条必须是**最后一条** ok()：它拿 `rows + 1` 当期望值，因为打印在下一行、
+// 要把自己算进去。后面再加等式却不改文档，这条就会红——正是想要的方向。
+const selfDoc = [...DOCS.matchAll(/rows: (\d+) fail: (\d+)/g)].map((m) => ({ n: +m[1], f: +m[2] }));
+ok(selfDoc.length >= 2, 'D18a 文档里至少两处抄了这个行数（命令表 + 承诺表；一处都没有＝解析器空转）',
+  `${selfDoc.length} 处`);
+// 期望值在 D18a **之后**才取：`rows + 1` 说的就是"加上 D18 自己这一条"，
+// 早取一行会把 D18a 漏掉，于是文档永远比实际少一项地红着。
+const selfN = rows + 1;
+ok(selfDoc.length >= 2 && selfDoc.every((r) => r.n === selfN && r.f === 0),
+  `D18 文档抄的行数等于本命令此刻的合计（${selfN} 项、0 失败）`,
+  `${selfDoc.map((r) => `rows: ${r.n} fail: ${r.f}`).join(' ∥ ') || '(没抄)'} vs 应为 rows: ${selfN} fail: 0（新增一条等式要同时改文档那两处）`);
 
 console.log(`\n合计 ${rows} 项，${fail.length} 项失败`);
 console.log(`rows: ${rows} fail: ${fail.length}`);

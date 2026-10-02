@@ -71,8 +71,11 @@ console.log('A3 每条条款都有近邻反例（且只有它在红）');
   // 两边的集合都从 rules.js 里抠出来：note('code', …) 是报得出来的，CLAUSE_TEXT 的键是说得出口的。
   const src = readFileSync(new URL('../js/engine/rules.js', import.meta.url), 'utf8');
   const codes = new Set([...src.matchAll(/note\('(\w+)'/g)].map(x => x[1]));
+  // 只抠 CLAUSE_TEXT 那一段。slice 到文件尾会把 CLAUSE_NAME 的键也当成"有句子"，
+  // 于是删掉一句条文文案而 A3 照绿（E2 这一刀第一次就是这么空的）。
   const tb = src.indexOf('export const CLAUSE_TEXT = {');
-  const texts = new Set([...src.slice(tb).matchAll(/^  (\w+): /gm)].map(x => x[1]));
+  const te = src.indexOf('\n};', tb);
+  const texts = new Set([...src.slice(tb, te).matchAll(/^  (\w+): /gm)].map(x => x[1]));
   ok(codes.size >= 8 && texts.size >= 8, 'A3 两个集合都真的抠到了（抠不到＝这条断言空转）', `note() ${codes.size} 个 code · CLAUSE_TEXT ${texts.size} 行`);
   ok([...codes].every(c => texts.has(c)), 'A3 checks() 用到的每个 code 都在 CLAUSE_TEXT 里有句子',
     [...codes].filter(c => !texts.has(c)).join(','));

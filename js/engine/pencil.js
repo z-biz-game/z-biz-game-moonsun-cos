@@ -27,7 +27,12 @@ export const RULE_TEXT = {
   N13_路径必达: '每条还活着的路线都绕不开的格，一定在环上。',
   N14_邻室交替: '所有活路都紧跟着进入的同一个区域，取与本区相反的符号。',
 };
-export const RULE_ORDER = Object.keys(RULE_TEXT);
+// 名单是**手写**的，不是 Object.keys(RULE_TEXT)：写成派生的话，`RULE_ORDER` 与
+// `RULE_TEXT` 同集合那条断言（engine-test 的 A0）永远为真，删掉一行规则文本它照绿——
+// 自我比较证明不了任何事。手写之后它是一份独立的陈述，两边各漂一半都会红。
+export const RULE_ORDER = ['N0_有边即在环', 'N1_符号定标', 'N2_两越定边', 'N3_度数满', 'N4_唯一出路',
+  'N5_度数缺口', 'N7_房间必进', 'N8_不成小环', 'N9_环序平衡', 'N11_房内路径',
+  'N12_路径不达', 'N13_路径必达', 'N14_邻室交替'];
 
 export function solve(bd, { maxSteps = 500, audit = null } = {}) {
   const { rows, cols } = bd;
