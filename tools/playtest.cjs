@@ -274,7 +274,7 @@ async function main() {
       const raw=JSON.parse(localStorage.getItem('moonsun.save.v1')||'null');
       return JSON.stringify({sizeKey:g?g.puzzle.sizeKey:'',seed:g?g.puzzle.seed:0,
         st:g?Array.from(g.st).join(','):'',cursor:g?g.cursor:-1,moves:g?g.moves.length:0,hints:g?g.hints:0,
-        elapsed:m.elapsed,status:g?g.status:'',to:d.to,
+        elapsed:m.elapsed,status:g?g.status:'',
         storedMs:raw?raw.elapsedMs:null,storedSeed:raw?raw.seed:null,storedSize:raw?raw.sizeKey:null,
         storedMoves:raw&&Array.isArray(raw.moves)?raw.moves.length:null,
         storedSt:raw&&Array.isArray(raw.st)?raw.st.join(','):'-',fp:raw?raw.fingerprint:null});})()`));
@@ -324,7 +324,15 @@ async function main() {
       // 报告交回来必须**已经**是 JSON 文本：scenario 的 report() 自己 stringify 一次，
       // 这里再 stringify 就变成一份带引号的字符串，python 侧 json.loads 拿到 str，
       // 于是这一腿看起来跑了、断言却一行都解析不出来（曾经红在 TypeError 上）。
-      const r = await window.__ng[${JSON.stringify(arg)}]();
+      let r;
+      try {
+        r = await window.__ng[${JSON.stringify(arg)}]();
+      } catch (e) {
+        // 半路抛了也要把已经记下的断言带回来：崩掉的 scenario 只报一条合成行，等于把
+        // "跑到第几条时才崩"这件事整个藏起来，而这一轮红的就是因为它。
+        const done = (window.__rows || []).slice();
+        return JSON.stringify({ rows: done.concat([{ test: 'scenario ' + ${JSON.stringify(arg)} + ' 半路抛了', pass: false, detail: String(e && e.message || e) }]), fail: done.filter((x) => !x.pass).length + 1, crashed: true });
+      }
       if (typeof r !== 'string') throw new Error('scenario ' + ${JSON.stringify(arg)} + ' 没交回字符串，而是 ' + typeof r);
       return r;
     })()`);

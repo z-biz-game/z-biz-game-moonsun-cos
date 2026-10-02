@@ -17,6 +17,9 @@
 
 ((w) => {
   const rows = [];
+  // 交出去是为了"半路抛异常时也把已记的断言带回来"：上一版 scenario 一崩，整份报告只剩
+  // node 侧那一条合成行，已经跑过的 20 多条（包括红的）全丢了，红点不出是哪一条。
+  w.__rows = rows;
   const ck = (test, cond, detail) => {
     rows.push({ test, pass: !!cond, detail: cond ? '' : String(detail === undefined ? '' : detail) });
   };
@@ -400,7 +403,7 @@
     A().afterMove(); A().render(); await wait(60);
     eq('照解写完就赢', A().won, true);
     ck('判胜那一格写的是引擎的话', text('#stat-verify') === '合法', text('#stat-verify'));
-    ck('胜利幕布真的占位', shown('#win-veil'), true);
+    ck('胜利幕布真的占位', shown('#win-veil'), `display=${getComputedStyle($('#win-veil')).display} rects=${$('#win-veil').getClientRects().length}`);
     ck('胜利卡落在盘面盒内', (() => {
       const c = rectOf('.win-card'), b = rectOf('#board-wrap');
       return c && b && c.left >= b.left - 1 && c.right <= b.right + 1 && c.top >= b.top - 1 && c.bottom <= b.bottom + 1;
@@ -515,24 +518,29 @@
     const fp = [g.rows, g.cols, g.room.flat().join(''), g.sym.flat().join('')].join('|');
     eq('指纹 == 尺寸|区域编号|符号行（闸自己算的）', raw.fingerprint, fp);
 
-    // 真回读：另起一局同 seed 的盘，把档里的笔迹搬回来
+    // 真回读：另起一局同 seed 的盘，把档里的笔迹搬回来。
+    // beginFresh 里 newGame() 收尾会 persist()，也就是**用新开那局的空盘覆写掉档**——
+    // 所以先把刚写好的那份档在手里留一份，回读之前放回去；不这么做的话，pendingResume
+    // 读到的是空盘（撤销栈长度 0），而 undo 断言就崩在 null.i 上。
+    const keep = JSON.stringify(raw);
     const stWrote = raw.st.join(',');
     const g2 = await beginFresh('5x5', 6161);
+    localStorage.setItem('moonsun.save.v1', keep);
     const d2 = A().store.pendingResume();
     ck('pendingResume 认得这份档', !!d2, JSON.stringify(d2 && Object.keys(d2)));
     const r2 = A().store.resume(g2.puzzle);
     ck('指纹对得上才让恢复', r2 === d2, JSON.stringify(r2));
-    ck('restore 把笔迹搬回来了', g2.restore(r2), true);
+    ck('这份档里确有可退的一步（否则下面的 undo 断言是空话）', Array.isArray(r2 && r2.moves) && r2.moves.length > 0, JSON.stringify(r2 && r2.moves && r2.moves.length));
+    ck('restore 把笔迹搬回来了', g2.restore(r2), JSON.stringify(r2 && { st: r2.st.slice(0, 4), moves: r2.moves.length }));
     eq('重开之后手迹逐格相同', [...g2.st].join(','), stWrote);
     eq('重开之后光标也回来了', g2.cursor, raw.cursor);
     eq('重开之后撤销栈也回来了', g2.moves.length, raw.moves.length);
     const last = raw.moves[raw.moves.length - 1];
     const back = g2.undo();
-    eq('续局之后撤销退的是导航前那一步', JSON.stringify([back.i, back.to]), JSON.stringify([last.i, last.to]));
-    eq('撤销之后那一格退回它原来的样子', g2.st[last.i], last.from);
+    eq('续局之后撤销退的是导航前那一步', back ? JSON.stringify([back.i, back.to]) : 'null', JSON.stringify([last.i, last.to]));
+    eq('撤销之后那一格退回它原来的样子', back ? g2.st[last.i] : 'null', last.from);
 
     // 拒绝路径：seed 变了就不能把旧笔迹盖在新盘上
-    const keep = JSON.stringify(raw);
     const g3 = await beginFresh('5x5', 6363);
     localStorage.setItem('moonsun.save.v1', keep);
     A().store.pendingResume();
@@ -540,8 +548,11 @@
     localStorage.setItem('moonsun.save.v1', JSON.stringify({ ...raw, fingerprint: fp.slice(0, -2) + 'zz' }));
     A().store.pendingResume();
     eq('指纹对不上时 resume 返回 null', A().store.resume(g3.puzzle), null);
-    // 收尾：把导航前要续的那份档放回 localStorage，并把屏幕上也开成那一局
+    // 收尾：把导航前要续的那份档放回 localStorage，并把屏幕上也开成那一局。
+    // 顺序照 boot 来：先 pendingResume()（它把档读进 Store.data），再 newGame(resumeFrom)
+    // ——resume() 拿的是 data，不是重新读一遍 localStorage，跳过第一步就等于拿上一份脏档去对账。
     localStorage.setItem('moonsun.save.v1', keep);
+    A().store.pendingResume();
     await A().newGame({ sizeKey: '5x5', seed: raw.seed, resumeFrom: raw });
     eq('把档交回 boot 路径也能续上（手迹逐格相同）', [...A().game.st].join(','), stWrote);
     return report({ keys: Object.keys(raw).join(','), moves: g.moves.length, wrote: onLoop.length });
@@ -555,6 +566,10 @@
     const g = A().game;
     ck('导航之后应用起来了', !!g && A().state === 'ready', A().state);
     if (!g || !wit) return report({});
+    // 分母先行：证人那份档要是空的，下面每一条"接着了"都是在比两张空盘，一定绿。
+    ck('证人那份档里确有笔迹与步数（续局断言比的不是空盘）',
+      Number(wit.storedMoves) > 0 && String(wit.st).split(',').some((v) => v !== '-1' && v !== ''),
+      JSON.stringify({ storedMoves: wit.storedMoves, storedMs: wit.storedMs, st: String(wit.st).slice(0, 30) }));
     eq('续的还是 seed 里那一局', g.puzzle.seed, wit.seed);
     eq('续的还是那一档尺寸', g.puzzle.sizeKey, wit.sizeKey);
     ck('手迹一条不差', g.st.join(',') === wit.st, `${g.st.join(',').slice(0, 40)} vs ${String(wit.st).slice(0, 40)}`);
@@ -566,11 +581,13 @@
     eq('页面印的时间与内部时钟同一份读数', text('#stat-time'), mmss(A().elapsed));
     ck('文档真的换了（timeOrigin 是证人那份之外的新值）', Number(wit.to) !== Number(performance.timeOrigin), `${wit.to} -> ${performance.timeOrigin}`);
     ck('证人那份哨兵不在新文档里（不是同一文档跳 hash）', w.__gateSentinel !== wit.doc, `${w.__gateSentinel} vs ${wit.doc}`);
-    // 续上的这一局必须还能判胜：拿答案补完，引擎要说合法
-    for (let i = 0; i < g.n; i++) if (g.st[i] === en.UNDRAWN && en.pop(g.puzzle.answer[i]) === 2) g.write(i, g.puzzle.answer[i]);
+    // 续上的这一局必须还能判胜：把环上那些"还没画对"的格补齐。
+    // 只看 UNDRAWN 是不够的——导航前那一步是真实点击路径写的，它把一个**环上格**滚成了
+    // 「不在环上」，那一格既不是没画也不该被跳过，补完时得按答案改回来。
+    for (let i = 0; i < g.n; i++) if (en.pop(g.puzzle.answer[i]) === 2 && g.st[i] !== g.puzzle.answer[i]) g.write(i, g.puzzle.answer[i]);
     A().afterMove(); A().render();
     await wait(60);
-    ck('续局之后照样判胜', A().won, true);
+    ck('续局之后照样判胜', A().won, JSON.stringify({ status: g.status, drawn: g.drawnCells, bad: g.report().filter((x) => x.level === 'error').length, codes: g.report().map((x) => x.code) }));
     eq('判胜那一格写的是合法', text('#stat-verify'), '合法');
     eq('续局之后幕布也占位了', shown('#win-veil'), true);
     return report({ seed: g.puzzle.seed, moves: g.moves.length, ms: A().elapsed });
