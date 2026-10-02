@@ -8,6 +8,9 @@ import { TIERS } from '../js/engine/tiers.js';
 import { SOURCES, official, officialLoop, officialMaskOf } from './fixtures.mjs';
 
 const N = +(process.argv[2] || process.env.SAMPLES || 12);
+// A9 要比的是"文档抄的读数 == 本轮读数"，所以把三处读数提到模块作用域。
+const GOLD = {};
+let HIST = '', SHIPPED = 0;
 let fail = 0, pass = 0;
 const VERBOSE = !!process.env.VERBOSE;
 const ok = (cond, label, extra = '') => {
@@ -47,6 +50,7 @@ console.log('A1 官方 5×5 例题上两条路会合');
   ok(pen.done && !pen.contradiction, 'A1 判据 2：铅笔在官方例题上 0 猜推满', `${pen.steps} 轮 · ${[...pen.fired].reduce((a, [, c]) => a + c, 0)} 次用规`);
   ok(cnt.first && pen.mask.every((v, i) => v === cnt.first[i]), 'A1 铅笔推出来的 === 计数器数出来的那个解');
   ok(pen.mask.every((v, i) => v === printed[i]), 'A1 铅笔推出来的 === 逐格抄下来的官方解答');
+  Object.assign(GOLD, { nodes: cnt.nodes, steps: pen.steps, cuts: [...pen.fired].reduce((a, [, c]) => a + c, 0) });
   say('开火的命名规则', [...pen.fired].map(([n, c]) => `${n}×${c}`).join(' ') || '一条都没开火');
   say('这张盘上没开火的规则（不在此处定罪，A6 管全仓）',
     RULE_ORDER.filter(n => !pen.fired.has(n)).join(' ') || '无');
@@ -186,8 +190,10 @@ console.log(`A4–A6 出货盘逐张对账（菜单三档 × ${N} 张）`);
         [...pen.fired.keys()].filter(n => !(n in RULE_TEXT)).join(','));
     }
   }
+  SHIPPED = boards;
   ok(boards === TIERS.length * N, 'A4 三档一张都没退货', `出货 ${boards}/${TIERS.length * N}`);
-  say('全仓用规次数直方图', RULE_ORDER.map(n => `${n}×${fired.get(n) || 0}`).join(' '));
+  HIST = RULE_ORDER.map(n => `${n}×${fired.get(n) || 0}`).join(' ');
+  say('全仓用规次数直方图', HIST);
   const dead = RULE_ORDER.filter(n => !fired.has(n));
   ok(dead.length === 0, 'A5 每条命名规则都至少开火过一次（从不开火的规则是装饰，得删）', dead.join(' ') || '无死规则');
 }
@@ -244,6 +250,38 @@ if (process.env.GATE_SELFTEST) {
   const b2 = officialMask.slice();
   b2[id(0, 1)] = 0;
   ok(checks(official, b2).length > 0, '自我破坏（擦掉一格）也被抓到');
+}
+
+// ── A9 文档抄的引擎读数 == 本轮读数 ──────────────────────────────────────────
+// README 里那几句"1 解 · 1108 节点""5 轮 · 44 次用规""36/36 张出货""294 条通过"和整行直方图，
+// 之前是人抄的：改一行代码、文档照样绿。这里把它们接到本轮真实读数上。
+// 只在默认口径（12 张/档、非自证轮）下比——文档那句写的就是这个口径，
+// 换了样本量还拿文档去比，红的是闸而不是谎。
+if (N === 12 && !process.env.GATE_SELFTEST) {
+  const rd = (u) => readFileSync(new URL(u, import.meta.url), 'utf8');
+  const docs = rd('../README.md') + '\n' + rd('../DESIGN.md');
+  const quoted = (re) => [...docs.matchAll(re)].map((m) => m[0]);
+  const one = (arr, want, label) => ok(arr.length >= 1 && arr.every((x) => x === want),
+    label, `文档 ${arr.length ? arr.join(' ∥ ') : '(没抄)'} vs 本轮 ${want}`);
+  // 44 是文档抄了很久的数；A9 第一次跑就发现现值是 45（node 与 Chrome 两条腿同一份模块读数一致）。
+  ok(GOLD.nodes === 1108 && GOLD.steps === 5 && GOLD.cuts === 45,
+    'A9 官方例题上的三个读数是钉死的字面量（改了计数器/铅笔就会红，而不是静漂）',
+    `${GOLD.nodes} 节点 · ${GOLD.steps} 轮 · ${GOLD.cuts} 次用规（期望 1108 · 5 · 45）`);
+  one(quoted(/1 解 · \d+ 节点 \/ 预算 \d+/g), `1 解 · ${GOLD.nodes} 节点 / 预算 ${CAP_WORK}`,
+    'A9 文档那句判据 1 的读数等于本轮（节点、预算一起比）');
+  one(quoted(/\d+ 轮 · \d+ 次用规/g), `${GOLD.steps} 轮 · ${GOLD.cuts} 次用规`,
+    'A9 文档那句判据 2 的读数等于本轮');
+  one(quoted(/N0_有边即在环×\d+(?: N\d+\S*×\d+)+/g), HIST,
+    'A9 文档那整行全仓用规直方图逐字等于本轮（每条规则的次数都在里面）');
+  one(quoted(/\d+\/\d+ 张出货/g), `${SHIPPED}/${TIERS.length * N} 张出货`,
+    'A9 文档那句「三档一张都没退货」的分子分母等于本轮');
+  // 这一条必须在最后：期望值 `pass + 1` 说的是"加上它自己这一条"。
+  const passDoc = [...docs.matchAll(/(\d+) 条通过/g)].map((m) => +m[1]);
+  ok(passDoc.length >= 2 && passDoc.every((v) => v === pass + 1),
+    'A9 文档抄的本命令总条数等于本轮（命令表 + 承诺表两处都得改，少一处就是抄漏）',
+    `文档 ${passDoc.join(' ∥ ') || '(没抄)'} vs 本轮 ${pass + 1} 条`);
+} else {
+  say('A9 跳过与 README 的比对', `本轮 N=${N}${process.env.GATE_SELFTEST ? ' · 自证轮' : ''}，文档那句写的是默认 12 张/档`);
 }
 
 console.log(`\nengine-test: ${pass} 条通过 · ${fail} 条失败`);

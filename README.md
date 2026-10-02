@@ -158,15 +158,16 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 | 命令 | 它比的是什么 | 本轮读数（rc 写进工件，不是管道尾巴） |
 | --- | --- | --- |
 | `npm run check` | 逐文件 `node --check` + `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 19 files, 121 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
-| `npm test` → `node tools/engine-test.mjs` | A0–A8：两条路独立、官方例题会合、歧义的 1/3、八条条款的近邻反例、三档 × 12 张出货不变量、无死规则、挖坏的盘必被拒收、seed 确定性 | `engine-test: 294 条通过 · 0 条失败`，`ENGINE_RC=0` |
+| `npm test` → `node tools/engine-test.mjs` | A0–A8：两条路独立、官方例题会合、歧义的 1/3、八条条款的近邻反例、三档 × 12 张出货不变量、无死规则、挖坏的盘必被拒收、seed 确定性；A9：文档抄的那几句引擎读数（节点、轮数、用规次数、出货数、整行直方图、本命令条数）逐处等于本轮 | `engine-test: 300 条通过 · 0 条失败`，`ENGINE_RC=0` |
 | `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、本命令自己的合计行数 | `rows: 88 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
 | `npm run balance` → `node tools/balance.mjs` | 出货率、成本 p95、难度阶梯、铅笔的选择性（对着多解盘）、菜单与淘汰理由里的「实测」 | `合计红线 0 条破口`，`BALANCE_RC=0` |
-| `bash tools/verify.sh` | 真 Chrome + 裸 CDP 真事件，读 DOM 文本/几何与画布像素，不读内部标志位 | `=== ALL GREEN ===`，662 条断言 / 0 失败，`VERIFY_RC=0` |
+| `bash tools/verify.sh` | 真 Chrome + 裸 CDP 真事件，读 DOM 文本/几何与画布像素，不读内部标志位 | `=== ALL GREEN ===`，664 条断言 / 0 失败，`VERIFY_RC=0` |
 | `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 21 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
 | `GATE_SELFTEST=1 bash tools/verify.sh` | 每一份报告都必须吃下一条注定错的期望 | `rc=1`、30 份报告 30 份点名红，`SELFTEST_RC=1` |
 
-上面这一列的 rc 全写在自己的日志里（浏览器腿：`_tmp-moonsun-gate-full3.log`；阴性自证：
-`_tmp-moonsun-gate-selftest3.log`；破坏台账：`_tmp-moonsun-sab.log`）。文档里那些 ms 与「本轮 med」是从
+上面这一列的 rc 全写在自己的日志里（浏览器腿：`_tmp-moonsun-gate-full6.log`；阴性自证：
+`_tmp-moonsun-gate-selftest4.log`；引擎闸：`_tmp-moonsun-et-final2.log`；balance：
+`_tmp-moonsun-balance-final.log`；破坏台账：`_tmp-moonsun-sab.log`）。文档里那些 ms 与「本轮 med」是从
 **同一次跑**抄来的读数，回填数字之后重跑的是 `doctest` 与 `engine-test`——因为没有任何闸比 ms，
 闸比的是条数、节点数和等式。
 
@@ -188,12 +189,19 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 
 ### 逐报告条数（一次跑，两种形态各一遍）
 
-engine 12 / gen 30 / core 53 / play 16 / hint 13 / win 13 / layout 9 / mouse 35 / touch 37 / keys 34 /
-save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 331 条 · 合计 662 条
+engine 12 / gen 30 / core 54 / play 16 / hint 13 / win 13 / layout 9 / mouse 35 / touch 37 / keys 34 /
+save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合计 664 条
 
-这一列的自洽由 `doctest` 的 D8 钉：解析到的项数必须等于脚本现算的每形态报告数，加起来必须等于它自己写的
-每形态条数，× 形态数必须等于合计。「两种形态逐条相同」不再靠散文：`verify.sh` 末尾按 `SHAPE_ID` 记账，
-逐 tag 比对两形态的条数，不同就点名变红。真事件三条腿走 `Input.dispatch*`：指针腿先断言命中盒到得了控件
+这一列有两层闸。「自己加自己」由 `doctest` 的 D8 钉：解析到的项数必须等于脚本现算的每形态报告数，
+加起来必须等于它自己写的每形态条数，× 形态数必须等于合计——但这一层分不清"抄得一致"和"抄得对"。
+所以 `verify.sh` 末尾真的数一遍：按 `SHAPE_ID` 逐 tag 记账，先比两种形态条数相同（不同就点名变红），
+再把 README 印的每一个数与两个总数对到本轮真实读数上——少抄一份报告、多抄一份、某个数漂了都红。
+自证那一轮跳过比对（每份报告都被塞了一条注定错的期望，天然比文档多 1）。
+这条比对接上之后第一次跑就红了两回（`_tmp-moonsun-gate-full4.log` 里 `HERE` 没导出、
+`_tmp-moonsun-gate-full5.log` 里 tag 是 `腿/场景` 两段而文档抄的是场景名），第三次才绿
+（`_tmp-moonsun-gate-full6.log`）——它不是接上去就好看的：它当场把自己的形状 bug 数出来了。
+
+真事件三条腿走 `Input.dispatch*`：指针腿先断言命中盒到得了控件
 再谈点不点得动；键盘腿先真点一次把焦点钉在棋盘上，再逐键断言到达数 `1 seen/1 handled/0 repeat`
 （`repeat` 用来区分「浏览器把一次按键发了 N 遍」和「游戏漏收」），并且**先断言计数器在位、页面真的可滚**，
 否则「scrollY 没动」既可能是挡得好也可能是根本没得滚；触屏腿自己声明并读回移动覆写
@@ -203,18 +211,21 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 331 条 · 合�
 
 `A4–A6 出货盘逐张对账（菜单三档 × 12 张）` 三档全出货、一张都没退货。官方 5×5 例题上
 `判据 1：恰好 1 解、没撞预算`（`1 解 · 1108 节点 / 预算 2000000`；浏览器 `engine` 腿在同一份模块上读到
-同一个 `1108`）与 `判据 2：铅笔 0 猜推满`（`5 轮 · 44 次用规`）同时成立，并且铅笔推出来的 === 计数器
+同一个 `1108`）与 `判据 2：铅笔 0 猜推满`（`5 轮 · 45 次用规`）同时成立，并且铅笔推出来的 === 计数器
 数出来的 === 逐格抄下来的 Nikoli 解答。A2 把题面歧义钉成等式：`STRICT 数出 1 解、LITERAL 数出 3 解`。
 全仓用规次数直方图（本轮）：
 `N0_有边即在环×113 N1_符号定标×204 N2_两越定边×43 N3_度数满×65 N4_唯一出路×66 N5_度数缺口×662 N7_房间必进×189 N8_不成小环×22 N9_环序平衡×29 N11_房内路径×585 N12_路径不达×290 N13_路径必达×241 N14_邻室交替×56`。
 
 ### `npm run balance` 的本轮实测（CI 用 SAMPLES=15 跑 balance.mjs，不设 env 时默认也是 15 张）
 
-| 档 | 出货 | 线索 med | 区域 med | 用规次数 med | 推理轮 med | 唯一性节点 med | 每张 med |
+节点、条数这类是闸比的量（`B1b`/`B5`/`B6` 拿它们做等式）；最后一列 ms 只是本机读数，
+没有任何闸比它，住在 `_tmp-moonsun-balance-final.log` 里。
+
+| 档 | 出货 | 线索 med | 区域 med | 用规次数 med | 推理轮 med | 唯一性节点 med | 每张 med（本机，无闸） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 5×5 入门 | 15/15 | 11 | 8 | 50 | 5 | 4490 | 18 ms |
-| 6×6 标准 | 15/15 | 14 | 8 | 72 | 6 | 50000 | 197 ms |
-| 7×7 进阶 | 15/15 | 22 | 12 | 94 | 7 | 125573 | 639 ms |
+| 5×5 入门 | 15/15 | 11 | 8 | 50 | 5 | 4490 | 19 ms（p95 109 ms） |
+| 6×6 标准 | 15/15 | 14 | 8 | 72 | 6 | 50000 | 200 ms（p95 463 ms） |
+| 7×7 进阶 | 15/15 | 22 | 12 | 94 | 7 | 125573 | 600 ms（p95 5351 ms） |
 
 红线一共这几条（`tools/balance.mjs`，破了就 `exit 1`）：`B1` 出题 p95 ≤ 档预算、
 `B1b` 每张出货盘的唯一性节点 ≤ `CAP_WORK`、`B2` 出货率 ≥ 50%（本轮三档都是 `15/15 = 100%`）、
@@ -237,7 +248,7 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 331 条 · 合�
 | 承诺 | 谁让它红 | 比的是什么 | 本轮读数 |
 | --- | --- | --- | --- |
 | 每张出货盘唯一可解 | `npm test` 的 A4 + `balance` 的 `B1b` | 穷举计数器恰好数出 1 解，且不越节点预算 | `36/36 张出货`、`max 1801534 < 2000000` |
-| 每张出货盘零猜测可推 | `npm test` 的 A4/A6 | 铅笔从空盘推满，`猜` 的次数为 0 | `294 条通过 0 失败` |
+| 每张出货盘零猜测可推 | `npm test` 的 A4/A6 | 铅笔从空盘推满，`猜` 的次数为 0 | `300 条通过 · 0 失败` |
 | 两道判据不许互相借代码 | `npm test` 的 A0 | **文件里**的 import 与调用，加 `RULE_ORDER`/`RULE_TEXT` 同集合 | `5 条独立性断言全过` |
 | 官方例题上两条路会合 | `npm test` 的 A1 + 浏览器 `engine` 腿 | 计数器的解 === 铅笔的解 === 逐格抄下来的 Nikoli 解答 | `1 解 / 0 猜推满` |
 | 题面歧义的裁决不是讨论出来的 | `npm test` 的 A2 + `doctest` 的 D9 | STRICT 与 LITERAL 的解数被钉成 1 与 3 的等式，文档引用的就是这两个字面量 | `strict 1 / literal 3` |
@@ -250,17 +261,17 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 331 条 · 合�
 | 淘汰档的理由是真的 | `balance` 的 `B6` + `doctest` 的 D5 | 淘汰项的样本/出货/节点 med/max/退货 == 当前树上重测；页面那句由字段拼出 | `8×8 3/5 · 10×10 5/5` |
 | 难度是量出来的轴，不是形容词 | `balance` 的 `B3` + `B3b` + `B3c` | 三档用规次数 med 单调，且首末两档区间不重叠 | `50 < 72 < 94`；`59 < 79` |
 | 出货率不能塌到要玩家等退货 | `balance` 的 `B2` | 每档出货 / 样本 ≥ 0.5 | `15/15` × 3 |
-| 出题成本有上界 | `balance` 的 `B1` + `B5b` | 每档 p95 ≤ 预算；预算本身只卡方向 | `98/482/5592 ms` vs `4000/8000/16000` |
+| 出题成本有上界 | `balance` 的 `B1` + `B5b` | 每档 p95 ≤ 预算；预算本身只卡方向 | `109/463/5351 ms` vs `4000/8000/16000`（p95，本机读数，住在 `_tmp-moonsun-balance-final.log`） |
 | 页面上没有第二份文案 | 浏览器 `core` 腿 + `doctest` 的 D2/D3 | `li` 文本逐条 == `CLAUSE_NAME + CLAUSE_TEXT` / `RULE_ORDER + RULE_TEXT`；理由逐字 == `eliminatedLine` | `53 条 0 失败` |
 | 画面真的画出来了（八种取样位、颜色两两拉开、不泄露答案） | 浏览器 `layout` 腿 | 画布像素按 `Board`/`Palette` 同一批几何取样 | `9 条 0 失败` |
 | 真输入事件到得了控件 | 浏览器 `mouse`/`touch`/`keys` 腿 | `Input.dispatch*` 之后的 DOM 读数与到达数 | `35/37/34 条 0 失败` |
 | 存档不含盘面对、坏档＝没有存档 | 浏览器 `save` / `corrupt` 腿 | 存档字段逐格比对 + 指纹/seed 对不上时 `resume` 必须返回 null | `25 / 29 条 0 失败` |
 | 片段导航不算重载、真重载才换文档 | 浏览器 `nav` / `resume` / `reload` 腿 | `timeOrigin` 与文档身份在跳 hash 时不许变，真重载必须变 | `4/17/4 条 0 失败` |
 | 赢了只能有一处说了算 | 浏览器 `win` / `play` 腿 | 幕布、状态行、存档 `won` 标记、拒绝再落子四处同一读数 | `13 / 16 条 0 失败` |
-| 两种 URL 形态都算数 | `tools/verify.sh` 的 preflight + 跨形态条数比对 | 前缀形态与根形态各自 serve 本仓字节；逐 tag 条数两形态相同 | `2 个形态 · 30 份报告` |
+| 两种 URL 形态都算数、文档抄的条数等于真实条数 | `tools/verify.sh` 的 preflight + 跨形态条数比对 | 前缀形态与根形态各自 serve 本仓字节；逐 tag 条数两形态相同，且 README 那 15 个数与两个总数逐处等于本轮读数 | `2 个形态 · 30 份报告 · 332/664 条` |
 | 闸自己会红——每一份报告都会红 | `GATE_SELFTEST=1` 那一步 | 分母由 `scenarios_for` 现场算，没种上错期望的报告点名 | `rc=1`、`30/30 点名` |
 | 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D18 那一整套等式（D17 现跑 wiring 比它打印的那一行，D18 把本命令自己的合计行数钉回文档） | `rows: 88 fail: 0` |
-| doctest 自己不是空转 | `node tools/sabotage.mjs` | 21 把刀逐类塞回代码（含 1 把对照组），每把都必须红在**它点名的那条**断言上 | `逼红 21 · 未逼红 0` |
+| doctest 自己不是空转 | `node tools/sabotage.mjs` | 23 把刀逐类塞回代码（含 1 把对照组），每把都必须红在**它点名的那条**断言上 | `逼红 23 · 未逼红 0` |
 
 ## 破坏试验台账
 
@@ -288,10 +299,12 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 |  K12 | README 的预算 2000000 改成 1000000 | 红 | 红 `D4 文档写的穷举` | `doctest` 的 D4（`CAP_WORK` / `DIG_WORK` / `MAX_ATTEMPTS` 三个数一起钉）  |
 |  K13 | README 的 8×8 淘汰句中位 `1,101,971` 改一个数字 | 红 | 红 `D5 8x8` | `doctest` 的 D5（页面那句逐字等于 `eliminatedLine`）  |
 |  K14 | `.github/workflows/ci.yml` 的 `SAMPLES: "15"` 改成 `"16"` | 红 | 红 `D10 CI 的 SAMPLES` | `doctest` 的 D10（CI 值 == 文档引用值 == 不设 env 的默认值）  |
-|  K15 | README 的每形态 331 改成 330 | 红 | 红 `D8 文档列的逐报告条数` | `doctest` 的 D8（逐报告条数加起来必须等于它自己写的两个总数）  |
+|  K15 | README 的每形态 332 改成 331 | 红 | 红 `D8 文档列的逐报告条数` | `doctest` 的 D8（逐报告条数加起来必须等于它自己写的两个总数）  |
 |  K16 | `tools/scenarios.js` 的官方例题抄件挪动一格 | 红 | 红 `D11 拷贝逐字段等于` | `doctest` 的 D11（浏览器腿那份拷贝逐字节等于 `tools/fixtures.mjs`）  |
 |  K17 | README 的 CI 覆盖表删掉 `doctest.mjs` 那一行 | 红 | 红 `D12b ci.yml` | `doctest` 的 D12 反向：runner 里跑的门禁必须都被列出来  |
 |  K18 | README 里一条行号引用的行数越界（把 `CAP_WORK` 那条的第 170 行改成第 9999 行） | 红 | 红 `D13 每一条` | `doctest` 的 D13（每一条行号引用都落在真实文件的行数内）  |
+|  K19 | README 的 `wiring: 19 files, 121 named imports` 改成 120 | 红 | 待钉 | `doctest` 的 D17（那一行是现跑 tools/wiring.mjs 比出来的，抄错就红） |
+|  K20 | README 的 `5 轮 · 45 次用规` 改成 46 | 红 | 待钉 | `engine-test` 的 A9（文档抄的引擎读数由引擎现跑比对） |
 |  E1 | `js/engine/pencil.js` 的 `RULE_TEXT` 里删掉 `N2_两越定边` 那一行 | 红，且要点名清单 | 待钉 | `engine-test` 的 A0：`RULE_ORDER` 与 `RULE_TEXT` 必须同集合（名单改成手写之后这才是两个独立陈述，见上面第三件事）  |
 |  E2 | `js/engine/rules.js` 的 `CLAUSE_TEXT` 里把 `cross` 那行删掉 | 红，且要点名 code | 待钉 | `engine-test` 的 A3 双向覆盖：报得出 `note('cross'…)` 的必须有句子（第一轮它从隔壁 `CLAUSE_NAME` 蹭到了句子，见上面第二件事）  |
 |  N1 | README 的难点小节里插一句不承载任何数的散文 | 不该红 | 待钉 | —（对照组：台账也得证明它不咬无关的话）  |
@@ -321,7 +334,7 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 
 完整清单在 `DESIGN.md` 的**不承诺**一节。要在这里重复的一句是：
 所有 ms 都是本机读数，没有任何闸承诺某一档多少毫秒内出完题；
-`7×7` 本轮 p95 `5592 ms` 贴着 `16000 ms` 预算的三分之一，慢机器上会怎样没有量过；
+`7×7` 本轮 p95 `5351 ms` 是 `16000 ms` 预算的三分之一，慢机器上会怎样没有量过；
 音效根本没有实现，因此也没有任何闸观察到一次发声；
 13 条命名规则「每条都会开火」是在三档 × 12 张这批样本上量的，不是对任意盘的定理；
 移动端只证到「几何没坏」，没有真机；立项阶段那两种挖线索目标函数的对照数

@@ -21,13 +21,13 @@
 #  * macOS 没有 timeout：看门狗用后台子 shell + trap（下面的 WD）。日志一律落在 $TMPD 里，
 #    不落 /tmp（会话中途会被清掉，证据就没了）。
 set -u
-HERE=$(cd "$(dirname "$0")/.." && pwd)
+export HERE=$(cd "$(dirname "$0")/.." && pwd)
 PORT=${CDP_PORT:-9363}
 # 5276 是本仓在端口表里占的号（server.cjs 的 DEFAULT_PORT、package.json 的 dev、这里，
 # 三处必须同一个数）。别的 agent 同时在跑各自仓的 verify.sh，端口撞了就会拿到"另一个仓"的
 # index.html，那种绿比红更糟。
 HTTP=${HTTP_PORT:-5276}
-SELF=${GATE_SELFTEST:-0}
+export SELF=${GATE_SELFTEST:-0}
 TMPD="$HERE/_tmp-verify"
 rm -rf "$TMPD"; mkdir -p "$TMPD"
 CHROME=${CHROME_BIN:-}
@@ -300,7 +300,7 @@ for leg in $LEGS; do
 done
 export PER_SHAPE
 python3 -c "
-import os, sys, collections
+import os, sys, re, collections
 rows = [l.split() for l in open(os.environ['TALLY']) if l.strip()]
 per = collections.defaultdict(dict)
 for shape, tag, n in rows: per[tag][shape] = int(n)
@@ -319,6 +319,40 @@ if diff:
     for t in diff: print('  RED %s 两种形态条数不同：%s' % (t, dict(per[t])))
     sys.exit(1)
 print('  ok 两种形态逐报告条数相同（每形态 %d 条 · 合计 %d 条）' % (per_shape_total, tot))
+# 文档那一列此前只被 doctest 的 D8 做过"自己加自己"的自洽检查：抄错的数只要两处一致就照样绿。
+# 这里把它接到活的数量上——README 印的每一份报告的条数、每形态与合计，都必须等于本轮真实读数。
+# 阴性自证模式下跳过：那一轮每份报告都被塞了一条注定错的期望，条数天然比文档多 1。
+if os.environ.get('SELF') == '1':
+    print('  -- 自证模式跳过与 README 的比对（每份报告多一条种下的红）')
+else:
+    doc = open(os.path.join(os.environ['HERE'], 'README.md'), encoding='utf8').read()
+    drift = []
+    # tag 有两种形状：浏览器 scenario 记成 `腿/场景`（core/engine），node 腿直接记腿名（mouse）。
+    # 文档那一列用的是场景名，所以取最后一段；两个 tag 撞成同一个名字必须红——
+    # 否则"少了一份报告"会被另多出来的一份悄悄补上数。
+    names = {}
+    for t in per:
+        nm = t.split('/')[-1]
+        if nm in names:
+            print('  RED 报告名 %s 被两个 tag 共用（%s 与 %s）——条数会被数重复' % (nm, names[nm], t))
+            sys.exit(1)
+        names[nm] = t
+    for nm in sorted(names):
+        want = per[names[nm]][shapes[0]]
+        got = [int(x) for x in re.findall(r'\b%s (\d+)' % nm, doc)]
+        if not got:
+            drift.append('%s：README 里没印它的条数（闸数到的没人抄走）' % nm)
+        elif [g for g in got if g != want]:
+            drift.append('%s：README %s vs 本轮 %d' % (nm, got, want))
+    tot_doc = re.findall(r'每形态 (\d+) 条 · 合计 (\d+) 条', doc)
+    if len(tot_doc) != 1:
+        drift.append('README 里「每形态 N 条 · 合计 M 条」那句解析到 %d 处（应为 1 处）' % len(tot_doc))
+    elif [int(x) for x in tot_doc[0]] != [per_shape_total, tot]:
+        drift.append('README 写每形态 %s · 合计 %s，本轮真实是 %d · %d' % (tot_doc[0][0], tot_doc[0][1], per_shape_total, tot))
+    if drift:
+        for d in drift: print('  RED ' + d)
+        sys.exit(1)
+    print('  ok README 抄的逐报告条数与两个总数，逐处等于本轮真实读数（%d 份 + 两个合计）' % len(per))
 " || FAILED=1
 
 if [ "$SELF" = 1 ]; then
