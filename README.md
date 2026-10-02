@@ -165,9 +165,10 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 | `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 24 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
 | `GATE_SELFTEST=1 bash tools/verify.sh` | 每一份报告都必须吃下一条注定错的期望 | `rc=1`、30 份报告 30 份点名红，`SELFTEST_RC=1` |
 
-上面这一列的 rc 全写在自己的日志里（浏览器腿：`_tmp-moonsun-gate-full6.log`；阴性自证：
-`_tmp-moonsun-gate-selftest4.log`；引擎闸：`_tmp-moonsun-et-final2.log`；balance：
-`_tmp-moonsun-balance-final.log`；破坏台账：`_tmp-moonsun-sab-final.log`）。文档里那些 ms 与「本轮 med」是从
+上面这一列的 rc 全写在自己的日志里（浏览器腿：`_tmp-moonsun-gate-final.log`；阴性自证：
+`_tmp-moonsun-selftest-final.log`；引擎闸：`_tmp-moonsun-et-final4.log`；balance：
+`_tmp-moonsun-balance-final.log`；破坏台账：`_tmp-moonsun-sab-final2.log`；doctest：
+`_tmp-moonsun-dt9.log`）。文档里那些 ms 与「本轮 med」是从
 **同一次跑**抄来的读数，回填数字之后重跑的是 `doctest` 与 `engine-test`——因为没有任何闸比 ms，
 闸比的是条数、节点数和等式。
 
