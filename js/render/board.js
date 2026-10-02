@@ -7,7 +7,7 @@
 // drifting apart is how a board renders correctly while the pixel gate measures air.
 import { Palette, Board, Radius } from '../theme.js';
 import { OFF, UNDRAWN } from '../ui/game.js';
-import { pop, DR, DC } from '../engine/rules.js';
+import { pop, DR, DC, UP, RIGHT, DOWN, LEFT } from '../engine/rules.js';
 
 export function layoutFor(rows, cols, availW, availH) {
   const pad = Board.pad;
@@ -67,7 +67,10 @@ export class BoardView {
     const { cell } = this.geo;
     const r = this.rectOf(i);
     if (kind === 'center') return { x: r.cx, y: r.cy };
-    if (kind === 'symbol') return { x: r.cx + cell * 0.26, y: r.cy + cell * 0.26 };
+    // 符号位的圆心与它的垫底半径是有不等式管着的：垫底那块是**盘底色**，一旦它的半径加上
+    // 偏移越过 0.5 格，它就会啃掉邻居格的网格线/区域粗边——门禁在边上取样时量到的就是盘底，
+    // 而玩家看到的是"边界在符号旁边断了一截"。0.22 + 1.35×0.19 = 0.4765 < 0.5。
+    if (kind === 'symbol') return { x: r.cx + cell * 0.22, y: r.cy + cell * 0.22 };
     if (kind === 'off') return { x: r.cx - cell * 0.28, y: r.cy - cell * 0.28 };
     if (kind === 'frame') return { x: r.cx + cell * 0.38, y: r.cy - cell * 0.38 };
     if (kind === 'stroke') return { x: r.cx + cell * 0.4 * DC[d], y: r.cy + cell * 0.4 * DR[d] };
@@ -125,8 +128,10 @@ export class BoardView {
         const nr = rr + DR[d], nc = cc + DC[d];
         const inside = nr >= 0 && nr < game.rows && nc >= 0 && nc < game.cols;
         if (inside && game.room[nr][nc] === game.room[rr][cc]) continue;
-        if (inside) this.strokeBorder(ctx, i, d);
-        else this.strokeOuter(ctx, i, d);
+        // 盘外那一圈不需要另一支笔：外沿就是「这一边没有邻居格」的那条边，point('border')
+        // 给出的正是它自己的边中点，和内部跨区边完全同构。分成两个方法就是两处各自漂的轴向
+        // 判断——它俩一旦漂开，玩家看到的边界和门禁量到的就不是同一条线。
+        this.strokeBorder(ctx, i, d);
       }
     }
 
@@ -182,19 +187,6 @@ export class BoardView {
     ctx.stroke();
   }
 
-  // 盘外那一圈：区域的外边界就是棋盘外沿，画成同一支笔，玩家才数得出「穿出去」是穿过区域边。
-  strokeOuter(ctx, i, d) {
-    const { cell } = this.geo;
-    const r = this.rectOf(i);
-    ctx.lineWidth = Math.max(2, cell * Board.borderRoom);
-    ctx.beginPath();
-    if (d === UP) { ctx.moveTo(r.x, r.y); ctx.lineTo(r.x + cell, r.y); }
-    if (d === DOWN) { ctx.moveTo(r.x, r.y + cell); ctx.lineTo(r.x + cell, r.y + cell); }
-    if (d === LEFT) { ctx.moveTo(r.x, r.y); ctx.lineTo(r.x, r.y + cell); }
-    if (d === RIGHT) { ctx.moveTo(r.x + cell, r.y); ctx.lineTo(r.x + cell, r.y + cell); }
-    ctx.stroke();
-  }
-
   strokeShape(ctx, i, mask, isBad) {
     const { cell } = this.geo;
     const w = Math.max(3, cell * Board.loopWidth);
@@ -229,13 +221,14 @@ export class BoardView {
     const p = this.point(i, 'symbol');
     const rad = Math.max(3, cell * Board.symbolR);
     // 先在符号位垫一块盘底色，环线才读成「从符号背后穿过」而不是糊在符号上。
+    // 半径与偏移受上面那条不等式管着（越过 0.5 格就会啃掉边界线）。
     ctx.fillStyle = Palette.field;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, rad * 1.45, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, rad * 1.35, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = s === 'M' ? Palette.moon : Palette.sun;
     ctx.strokeStyle = s === 'M' ? Palette.moon : Palette.sun;
-    ctx.lineWidth = Math.max(1.5, cell * 0.045);
+    ctx.lineWidth = Math.max(1.5, cell * Board.symbolR * 0.24);
     ctx.beginPath();
     ctx.arc(p.x, p.y, rad * 0.62, 0, Math.PI * 2);
     ctx.fill();
@@ -243,9 +236,12 @@ export class BoardView {
       // 月牙：拿盘底色啃掉右上那一口，所以形状本身也读得出来，不只靠颜色。
       // 用 destination-out 会把垫底那块连卡片一起擦穿（透出的是页面背景而不是 field），
       // 那样「月亮」和「这里有个洞」在像素上就分不开。
+      // 啃的口必须**够不到圆心的取样位**：offset 0.42 时缺口内壁离圆心只有 0.014×rad，
+      // 那一个像素是被抗锯齿糊成半色的——门禁读到的"月亮"于是有四颗是糊的。现在内壁在
+      // 0.778−0.55 = 0.228×rad 之外，缺口又仍与圆盘相交（0.778 < 0.62+0.55），形状照样是月牙。
       ctx.fillStyle = Palette.field;
       ctx.beginPath();
-      ctx.arc(p.x + rad * 0.42, p.y - rad * 0.42, rad * 0.58, 0, Math.PI * 2);
+      ctx.arc(p.x + rad * 0.55, p.y - rad * 0.55, rad * 0.55, 0, Math.PI * 2);
       ctx.fill();
     } else {
       for (let k = 0; k < 8; k++) {

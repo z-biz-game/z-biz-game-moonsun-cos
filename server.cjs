@@ -42,7 +42,7 @@ function createServer(root = __dirname) {
       res.writeHead(400).end('bad request');
       return;
     }
-    // URL 路径**直接映射**到 root，不替「/z-biz-game-masyu-cos/...」这种前缀兜底：
+    // URL 路径**直接映射**到 root，不替「/z-biz-game-moonsun-cos/...」这种前缀兜底：
     // GitHub Pages 就是把部署目录挂在 /<仓库名>/ 下面，页面里但凡有一个写死的
     // href="/css/game.css"，线上就 404。本地要是顺手把前缀吃掉，tools/verify.sh 那段前缀
     // 冒烟就会永远绿着——那等于门禁在给自己替被测对象打的补丁做见证。
@@ -74,12 +74,13 @@ module.exports = { createServer, startServer };
 
 if (require.main === module) {
   const port = Number(process.argv[2]) || Number(process.env.PORT) || DEFAULT_PORT;
-  // 第二个参数是根目录：tools/verify.sh 用它跑一次「带 /z-biz-game-masyu-cos/ 前缀」的
-  // Pages 形状冒烟测试，而不用另开一个端口号。
+  // 第二个参数是根目录：tools/verify.sh 用它跑一次「带 /z-biz-game-moonsun-cos/ 前缀」的
+  // Pages 形状——临时根里只放一条指回本仓的符号链接，于是写死的绝对路径会像线上一样 404，
+  // 而不用另开一个端口号。
   const root = process.argv[3] ? path.resolve(process.argv[3]) : __dirname;
   startServer({ port, root })
     .then((server) => {
-      console.log(`数链 Masyu served at http://127.0.0.1:${port}/  root=${root}  (ctrl+c to stop)`);
+      console.log(`月之日 Moonsun served at http://127.0.0.1:${port}/  root=${root}  (ctrl+c to stop)`);
       process.on('SIGINT', () => server.close(() => process.exit(0)));
     })
     .catch((err) => {

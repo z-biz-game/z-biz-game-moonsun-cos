@@ -8,7 +8,7 @@
 //      不说「画成这个形状」。铅笔推不动时它就说推不动，不会替玩家猜，也不会去翻答案。
 import { makePuzzle, toView } from './engine/generate.js';
 import { TIERS, ELIMINATED, eliminatedLine, SIZES, parseSize, CAP_WORK } from './engine/tiers.js';
-import { checks, countSolutions, pop, bit, UP, RIGHT, DOWN, LEFT, OPP, CLAUSE_TEXT, PAIRS } from './engine/rules.js';
+import { checks, countSolutions, pop, bit, UP, RIGHT, DOWN, LEFT, OPP, CLAUSE_TEXT, CLAUSE_ORDER, CLAUSE_NAME, PAIRS } from './engine/rules.js';
 import { solve, RULE_TEXT, RULE_ORDER } from './engine/pencil.js';
 import { Game, SHAPE_CYCLE, SHAPE_NAME, UNDRAWN, OFF } from './ui/game.js';
 import { BoardView } from './render/board.js';
@@ -34,14 +34,13 @@ let said = null;            // 状态行上下一句要念的话（提示／作�
 const say = (m) => { said = m; $('#state-line').textContent = m; };
 
 // ── 面板文案：规则表从引擎拿，不在 HTML 里另抄一份 ──────────────────────────
-// README 的条款表和这里读的是同一张 CLAUSE_TEXT/RULE_TEXT，doctest 逐条对账；
+// README 的条款表和这里读的是同一张 CLAUSE_TEXT/CLAUSE_ORDER/RULE_TEXT，doctest 逐条对账；
 // 页面上手抄一份副本的话，改引擎不会让页面变红，那才是真的说谎。
 function fillClauseLists() {
-  const codes = ['degree', 'asym', 'disjoint', 'edge', 'cross', 'symbol', 'alternation'];
-  $('#clause-list').replaceChildren(...codes.map((c) => {
+  $('#clause-list').replaceChildren(...CLAUSE_ORDER.map((c) => {
     const li = document.createElement('li');
     const b = document.createElement('b');
-    b.textContent = { degree: '每格两条线', asym: '两头都要接上', disjoint: '一条不许分段', edge: '不许出盘', cross: '每区穿两次', symbol: '区域的符号', alternation: '月日交替' }[c];
+    b.textContent = CLAUSE_NAME[c];
     li.append(b, document.createTextNode('：' + CLAUSE_TEXT[c]));
     return li;
   }));
@@ -327,8 +326,9 @@ window.moonsun = {
   version: VERSION,
   state: 'booting',
   engine: {
-    makePuzzle, toView, parseSize, TIERS, SIZES, ELIMINATED, CAP_WORK,
-    solve, countSolutions, checks, pop, bit, OPP, PAIRS, CLAUSE_TEXT, RULE_TEXT, RULE_ORDER,
+    makePuzzle, toView, parseSize, TIERS, SIZES, ELIMINATED, eliminatedLine, CAP_WORK,
+    solve, countSolutions, checks, pop, bit, OPP, PAIRS, CLAUSE_TEXT, CLAUSE_ORDER, CLAUSE_NAME,
+    RULE_TEXT, RULE_ORDER,
     UP, RIGHT, DOWN, LEFT, UNDRAWN, OFF, SHAPE_CYCLE, SHAPE_NAME,
   },
   view,

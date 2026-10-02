@@ -148,6 +148,21 @@ export const CLAUSE_TEXT = {
   empty: '还没有画出任何环线。',
 };
 
+// 条款的名字与顺序也只有一份：面板、README 的条款表、doctest 的对账都读这里。
+// main.js 自己手抄一份 codes 数组的话，新增一条 checks() 就会既有红格、又有文案，
+// 却在玩家那一栏里根本不存在——而少一行的面板看起来和满的一模一样。
+export const CLAUSE_ORDER = ['degree', 'asym', 'disjoint', 'edge', 'cross', 'symbol', 'alternation', 'empty'];
+export const CLAUSE_NAME = {
+  degree: '每格两条线',
+  asym: '两头都要接上',
+  disjoint: '一条不许分段',
+  edge: '不许出盘',
+  cross: '每区穿两次',
+  symbol: '区域的符号',
+  alternation: '月日交替',
+  empty: '空盘不算',
+};
+
 // ---- criterion 1 ----
 // The node budget the shipping promise is written against: a board is only
 // shippable if the exhaustive counter proves uniqueness inside it, and every

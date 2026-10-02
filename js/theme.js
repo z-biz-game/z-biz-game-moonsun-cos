@@ -14,6 +14,9 @@ export const Palette = {
   ink: '#F2F5FB',
   inkDim: 'rgba(242,245,251,0.62)',
   inkFaint: 'rgba(242,245,251,0.34)',
+  // css 的描边色。它是被样式表用 `var(--line)` 引用着的令牌：名字没在 Palette 里，
+  // 整条 border 简写就废掉，卡片会没有边——core 腿逐条数过样式表里的 var()。
+  line: '#2A3142',
   accent: '#4CD9B0',
   info: '#7BB8FF',
   success: '#3DDC91',

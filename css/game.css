@@ -80,12 +80,12 @@ button.link { background: none; border: 0; color: var(--info); text-decoration: 
 .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid rgba(242, 245, 251, 0.18); }
 .sw-field { background: var(--field); }
 .sw-loop { background: var(--loop); }
-.sw-off { background: var(--offMark); border-radius: 50%; }
+.sw-off { background: var(--off-mark); border-radius: 50%; }
 .sw-cap { background: var(--cap); border-radius: 50%; }
 .sw-moon { background: var(--moon); border-radius: 50%; }
 .sw-sun { background: var(--sun); border-radius: 50%; }
 .sw-bad { background: var(--error); }
-.sw-border { background: var(--roomBorder); height: 4px; border-radius: 2px; }
+.sw-border { background: var(--room-border); height: 4px; border-radius: 2px; }
 
 .foot { margin-top: calc(var(--space-page) * 1.2); display: flex; gap: var(--space-inner); justify-content: space-between; align-items: center; color: var(--ink-faint); font-size: 11px; line-height: 1.6; }
 .foot code { color: var(--ink-dim); }
