@@ -165,12 +165,13 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 | `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 24 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
 | `GATE_SELFTEST=1 bash tools/verify.sh` | 每一份报告都必须吃下一条注定错的期望 | `rc=1`、30 份报告 30 份点名红，`SELFTEST_RC=1` |
 
-上面这一列的 rc 全写在自己的日志里（浏览器腿：`_tmp-moonsun-gate-final.log`；阴性自证：
-`_tmp-moonsun-selftest-final.log`；引擎闸：`_tmp-moonsun-et-final4.log`；balance：
-`_tmp-moonsun-balance-final.log`；破坏台账：`_tmp-moonsun-sab-final2.log`；doctest：
-`_tmp-moonsun-dt9.log`）。文档里那些 ms 与「本轮 med」是从
+上面这一列的 rc 全写在自己的日志里，且这些日志都出自**定稿树**（`css/game.css` 的 `min-height` 修好
+之后那一版；浏览器腿：`_tmp-moonsun-gate-final2.log`；阴性自证：`_tmp-moonsun-selftest-final2.log`；
+引擎闸：`_tmp-moonsun-et-final6.log`；balance：`_tmp-moonsun-balance-final2.log`；破坏台账：
+`_tmp-moonsun-sab-final3.log`；doctest：`_tmp-moonsun-dt13.log`）。文档里那些 ms 与「本轮 med」是从
 **同一次跑**抄来的读数，回填数字之后重跑的是 `doctest` 与 `engine-test`——因为没有任何闸比 ms，
-闸比的是条数、节点数和等式。
+闸比的是条数、节点数和等式。这两份日志记的就是回填之后那一版的读数：此后任何一次改动都由 CI 的
+`check` job 现跑这两个命令收口，所以这里不需要"日志永远差一版"的追补。
 
 ### CI 覆盖表（每一行都由 `doctest` 的 D12 与 `.github/workflows/ci.yml` 双向对账）
 
@@ -212,7 +213,9 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 而那个 link 按钮的盒高当时由字体度量决定——本机（macOS）量到 28 以上、CI 的 Ubuntu runner 量到
 **19 px**，两种 URL 形态各红一次（`_tmp-moonsun-ci-browser.log`）。修的是产品不是闸：`css/game.css`
 把 `min-height: 2rem` 写死，28 这个阈值一个像素没动。教训写在 `DESIGN.md` 第九节：
-一条按像素判几何的断言，只要它的被测值来自字体度量，就还没被证明。
+一条按像素判几何的断言，只要它的被测值来自字体度量，就还没被证明。修好之后同一份闸在 runner 上过了：
+两个 job（`syntax + engine guarantees`、`real browser gate (both URL shapes)`）各自 `success`，站点根
+`HTTP 200`（读数在 `_tmp-moonsun-ci2.log` 末尾：`CI completed success` · `PAGES_HTTP=200`）。
 
 ### `npm test` 的分尺寸读数（`tools/engine-test.mjs`，默认 12 张/档）
 
@@ -226,13 +229,13 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 ### `npm run balance` 的本轮实测（CI 用 SAMPLES=15 跑 balance.mjs，不设 env 时默认也是 15 张）
 
 节点、条数这类是闸比的量（`B1b`/`B5`/`B6` 拿它们做等式）；最后一列 ms 只是本机读数，
-没有任何闸比它，住在 `_tmp-moonsun-balance-final.log` 里。
+没有任何闸比它，住在 `_tmp-moonsun-balance-final2.log` 里。
 
 | 档 | 出货 | 线索 med | 区域 med | 用规次数 med | 推理轮 med | 唯一性节点 med | 每张 med（本机，无闸） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 5×5 入门 | 15/15 | 11 | 8 | 50 | 5 | 4490 | 19 ms（p95 109 ms） |
-| 6×6 标准 | 15/15 | 14 | 8 | 72 | 6 | 50000 | 200 ms（p95 463 ms） |
-| 7×7 进阶 | 15/15 | 22 | 12 | 94 | 7 | 125573 | 600 ms（p95 5351 ms） |
+| 5×5 入门 | 15/15 | 11 | 8 | 50 | 5 | 4490 | 19 ms（p95 93 ms） |
+| 6×6 标准 | 15/15 | 14 | 8 | 72 | 6 | 50000 | 180 ms（p95 463 ms） |
+| 7×7 进阶 | 15/15 | 22 | 12 | 94 | 7 | 125573 | 586 ms（p95 5289 ms） |
 
 红线一共这几条（`tools/balance.mjs`，破了就 `exit 1`）：`B1` 出题 p95 ≤ 档预算、
 `B1b` 每张出货盘的唯一性节点 ≤ `CAP_WORK`、`B2` 出货率 ≥ 50%（本轮三档都是 `15/15 = 100%`）、
@@ -268,7 +271,7 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 | 淘汰档的理由是真的 | `balance` 的 `B6` + `doctest` 的 D5 | 淘汰项的样本/出货/节点 med/max/退货 == 当前树上重测；页面那句由字段拼出，文档抄的是那句整句 | 见「难点」那两行 blockquote（逐字由 D5 钉） |
 | 难度是量出来的轴，不是形容词 | `balance` 的 `B3` + `B3b` + `B3c` | 三档用规次数 med 单调，且首末两档区间不重叠 | `50 < 72 < 94`；`59 < 79` |
 | 出货率不能塌到要玩家等退货 | `balance` 的 `B2` | 每档出货 / 样本 ≥ 0.5 | `15/15` × 3 |
-| 出题成本有上界 | `balance` 的 `B1` + `B5b` | 每档 p95 ≤ 预算；预算本身只卡方向 | `109/463/5351 ms` vs `4000/8000/16000`（p95，本机读数，住在 `_tmp-moonsun-balance-final.log`） |
+| 出题成本有上界 | `balance` 的 `B1` + `B5b` | 每档 p95 ≤ 预算；预算本身只卡方向 | `93/463/5289 ms` vs `4000/8000/16000`（p95，本机读数，住在 `_tmp-moonsun-balance-final2.log`） |
 | 页面上没有第二份文案 | 浏览器 `core` 腿 + `doctest` 的 D2/D3 | `li` 文本逐条 == `CLAUSE_NAME + CLAUSE_TEXT` / `RULE_ORDER + RULE_TEXT`；理由逐字 == `eliminatedLine` | `53 条 0 失败` |
 | 画面真的画出来了（八种取样位、颜色两两拉开、不泄露答案） | 浏览器 `layout` 腿 | 画布像素按 `Board`/`Palette` 同一批几何取样 | `9 条 0 失败` |
 | 真输入事件到得了控件 | 浏览器 `mouse`/`touch`/`keys` 腿 | `Input.dispatch*` 之后的 DOM 读数与到达数 | `35/37/34 条 0 失败` |
@@ -291,8 +294,9 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 钉的是**行首锚点**而不是全局替换，因为全局替换曾经把下面那句**历史**读数也改成过本轮的数，
 那时没有任何一条闸读得到它；现在 `D19` 拿合成台账现测这只手（少一处锚点、多一处无人认领、
 历史那句被吞、台账行漂了，四种都必须红），钉对之后重跑不再改写。
-定稿后整轮重跑：`逼红 24 · 未逼红 0`（`_tmp-moonsun-sab-final2.log`；活树上的幂等另由
-`_tmp-moonsun-pin-again.mjs` 拿那一轮的日志重建 24 行喂回写者，读数 `PIN_IDEMPOTENT=yes`）。
+定稿后整轮重跑：`逼红 24 · 未逼红 0`（`_tmp-moonsun-sab-final3.log`；这一份日志的末尾就是写者在
+定稿树上的自证读数「README 台账已经等于本轮读数（幂等：没有改写）」——幂等不必再靠另一个脚本重建
+24 行喂回写者来证明）。
 
 | 刀 | 改哪里 | 期望 | 实跑 | 咬到它的闸 |
 | --- | --- | --- | --- | --- |
@@ -351,7 +355,7 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 
 完整清单在 `DESIGN.md` 的**不承诺**一节。要在这里重复的一句是：
 所有 ms 都是本机读数，没有任何闸承诺某一档多少毫秒内出完题；
-`7×7` 本轮 p95 `5351 ms` 是 `16000 ms` 预算的三分之一，慢机器上会怎样没有量过；
+`7×7` 本轮 p95 `5289 ms` 是 `16000 ms` 预算的三分之一，慢机器上会怎样没有量过；
 音效根本没有实现，因此也没有任何闸观察到一次发声；
 13 条命名规则「每条都会开火」是在三档 × 12 张这批样本上量的，不是对任意盘的定理；
 移动端只证到「几何没坏」，没有真机；立项阶段那两种挖线索目标函数的对照数
