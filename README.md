@@ -213,9 +213,12 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 而那个 link 按钮的盒高当时由字体度量决定——本机（macOS）量到 28 以上、CI 的 Ubuntu runner 量到
 **19 px**，两种 URL 形态各红一次（`_tmp-moonsun-ci-browser.log`）。修的是产品不是闸：`css/game.css`
 把 `min-height: 2rem` 写死，28 这个阈值一个像素没动。教训写在 `DESIGN.md` 第九节：
-一条按像素判几何的断言，只要它的被测值来自字体度量，就还没被证明。修好之后同一份闸在 runner 上过了：
-两个 job（`syntax + engine guarantees`、`real browser gate (both URL shapes)`）各自 `success`，站点根
-`HTTP 200`（读数在 `_tmp-moonsun-ci2.log` 末尾：`CI completed success` · `PAGES_HTTP=200`）。
+一条按像素判几何的断言，只要它的被测值来自字体度量，就还没被证明。修好之后同一份闸在 runner 上过了，
+两个 job（`syntax + engine guarantees`、`real browser gate (both URL shapes)`）各自 `success`、站点根
+`HTTP 200`：这是按 sha 记的**事件**而不是"最新状态"——`54cfdb4`（run 37054611047）与回填完文档的
+`49703ea`（run 37057039183）各绿一次，读数分别在 `_tmp-moonsun-ci2.log` 与 `_tmp-moonsun-ci4.log` 末尾
+（`CI completed success` · `PAGES_HTTP=200`）。文档之后的每一次改动由 CI 的 `check` job 现跑闸收口，
+所以这里不写"现在也是绿的"这种要一直追下去的话。
 
 ### `npm test` 的分尺寸读数（`tools/engine-test.mjs`，默认 12 张/档）
 
