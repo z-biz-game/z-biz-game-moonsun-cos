@@ -20,6 +20,7 @@ import { CAP_WORK, CLAUSE_ORDER, CLAUSE_NAME, CLAUSE_TEXT } from '../js/engine/r
 import { RULE_ORDER, RULE_TEXT } from '../js/engine/pencil.js';
 import { DIG_WORK, MAX_ATTEMPTS } from '../js/engine/generate.js';
 import { SOURCES, official, officialLoop } from './fixtures.mjs';
+import { pinReadme } from './pin.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -368,6 +369,58 @@ ok(wireDoc.length >= 1, 'D17b 文档里抄了那一行（一处都没抄＝这�
 ok(wireDoc.length >= 1 && wireDoc.every((s) => s === wireLive),
   'D17 文档抄的 wiring 汇总逐字等于现跑出来的那一行',
   `${wireDoc.join(' ∥ ') || '(文档没抄)'} vs 现跑 ${wireLive || '(没读到)'}`);
+
+// ── D19 台账自钉的那只手：写文档之前先验它写的是对的地方 ────────────────────────
+// sabotage.mjs 跑完要把本轮读数写回 README。第一版写的是**全局替换**，于是它把台账里那句
+// 「第一轮的读数在 _tmp-moonsun-sab-r1.log：那一轮 逼红 19 · 未逼红 2」也一起改成了本轮的数——
+// 文档从此指着那份日志说一件日志里没有的事，而当时没有任何一条闸读得到它。这条就测那只手。
+console.log('D19 台账自钉（tools/pin.mjs）');
+const SYN = [
+  '| `node tools/sabotage.mjs` | 台架 | `逼红 21 · 未逼红 2`，`SAB_RC=0` |',
+  '| doctest 自己不是空转 | 23 把刀 | `逼红 21 · 未逼红 2` |',
+  '定稿后整轮重跑：`逼红 21 · 未逼红 2`（`_tmp-moonsun-sab-final.log`）。',
+  '台账自己教的五件事（第一轮的读数在 `_tmp-moonsun-sab-r1.log`：那一轮 `逼红 19 · 未逼红 2`，',
+  '| K1 | 改一处 | 红 | 红 `D2 symbol` | `doctest` 的 D2 |',
+].join('\n');
+const R1 = [{ id: 'K1', verdict: '红 `D9 新的`' }];
+const p19 = pinReadme(SYN, R1, '逼红 23 · 未逼红 0');
+const histOf = (t) => t.split('\n').find((l) => l.includes('_tmp-moonsun-sab-r1.log'));
+ok(p19.fail.length === 0 && p19.nailed === 3, 'D19a 合成台账：三处锚点全钉上、没有无人认领的读数',
+  p19.fail.join(' ∥ ') || `钉 ${p19.nailed} 处`);
+ok(histOf(p19.text) === histOf(SYN),
+  'D19 历史那句一个字都没被改（全局替换毁掉的正是它）',
+  `${histOf(p19.text) === histOf(SYN) ? '逐字节相同' : '被改成了：' + histOf(p19.text)}`);
+ok(p19.text.includes('| K1 | 改一处 | 红 | 红 `D9 新的` |'),
+  'D19b 台账「实跑」那一格写的是本轮裁决（旧读数不再留着）',
+  p19.text.split('\n').find((l) => l.startsWith('| K1')) || '(整行没了)');
+const again19 = pinReadme(p19.text, R1, '逼红 23 · 未逼红 0');
+ok(again19.text === p19.text && again19.nailed === 3,
+  'D19c 幂等：钉对了再跑一遍不改写（README 说"钉对之后重跑不再改写"靠的就是这句）',
+  again19.text === p19.text ? '第二次没有差异' : '第二次仍在改写');
+const less19 = pinReadme(SYN.split('\n').filter((l) => !l.startsWith('| doctest 自己不是空转')).join('\n'), R1, '逼红 23 · 未逼红 0');
+ok(less19.fail.some((f) => /2\/3/.test(f)),
+  'D19d 少一处锚点必须红（不能静默只钉两处——那正是"另一处一直抄着上一轮的数"）',
+  less19.fail.join(' ∥ ') || '(竟然没红)');
+const orphan19 = pinReadme(SYN + '\n顺带一句：`逼红 7 · 未逼红 7` 是别的地方的数', R1, '逼红 23 · 未逼红 0');
+ok(orphan19.fail.some((f) => f.includes('既不在锚点上')),
+  'D19e 多一处无人认领的读数必须红（新加一句却不挂锚点＝没人收本轮的数）',
+  orphan19.fail.join(' ∥ ') || '(竟然没红)');
+const drift19 = pinReadme(SYN, [{ id: 'K99', verdict: '红 `x`' }], '逼红 1 · 未逼红 0');
+ok(drift19.fail.some((f) => f.includes('没有 K99 这一行')),
+  'D19f 台账行形状漂了必须红（找不到行不能"补一句"）',
+  drift19.fail.join(' ∥ ') || '(竟然没红)');
+// 真 README：三处锚点各命中一次，非锚点的那处必须点着自己那一轮的日志（反空转：历史那句真在）
+const RM19 = read('README.md').split('\n');
+const ANCH19 = [/^定稿后整轮重跑：/, /^\| `node tools\/sabotage\.mjs` \|/, /^\| doctest 自己不是空转 \|/];
+const anchorHits = ANCH19.map((re) => RM19.filter((l) => re.test(l) && /逼红 \d+ · 未逼红 \d+/.test(l)).length);
+const histHits = RM19.filter((l) => /逼红 \d+ · 未逼红 \d+/.test(l) && /_tmp-moonsun-sab-r\d+\.log/.test(l));
+const stray19 = RM19.filter((l) => /逼红 \d+ · 未逼红 \d+/.test(l)
+  && !ANCH19.some((re) => re.test(l)) && !/_tmp-moonsun-sab-r\d+\.log/.test(l));
+ok(anchorHits.every((n) => n === 1) && stray19.length === 0,
+  'D19g 真 README：三处锚点各一处、没有第四处漂着的读数',
+  `锚点 ${anchorHits.join('/')} · 无人认领 ${stray19.length}${stray19.length ? '：' + stray19.join(' ∥ ') : ''}`);
+ok(histHits.length >= 1, 'D19h 历史那一处确实点着某一轮的日志（一处都没有＝这条只是摆设）',
+  `${histHits.length} 处：${histHits.map((l) => (l.match(/_tmp-\S+\.log/) || [''])[0]).join(' ')}`);
 
 // ── D18 本命令自己的合计行数：文档抄的必须等于这一次跑出来的 ────────────────────
 // 这条必须是**最后一条** ok()：它拿 `rows + 1` 当期望值，因为打印在下一行、

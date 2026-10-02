@@ -11,11 +11,14 @@
 //   * 刀跑之前先跑对照：干净树上的 doctest 与 engine-test 都必须绿。否则"红了"说明不了是刀咬的。
 //
 // 台账里的 rc 与咬到的标签是从子进程读回来的真实读数，跑完自钉回 README 那张表（幂等：
-// 钉对之后干净重跑不再改写）。用法：node tools/sabotage.mjs
+// 钉对之后干净重跑不再改写）。钉法本身在 tools/pin.mjs，由 doctest 的 D19 拿合成文本现测——
+// 因为"写文档的那只手"上一版做的是全局替换，把台账里那句**历史**读数也改成了本轮的数。
+// 用法：node tools/sabotage.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { pinReadme } from './pin.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DOC = { cmd: 'node', args: ['tools/doctest.mjs'], timeout: 180000 };
@@ -55,8 +58,10 @@ const KNIVES = [
     'D12b ci.yml', '反向：runner 里跑的门禁必须都被列出来'),
   K('K18', 'README.md', '（`js/engine/rules.js:170` 的 `CAP_WORK`）', '（`js/engine/rules.js:9999` 的 `CAP_WORK`）',
     'D13 每一条', '行号引用越界'),
-  K('K19', 'README.md', 'wiring: 19 files, 121 named imports', 'wiring: 19 files, 120 named imports',
+  K('K19', 'README.md', 'wiring: 20 files, 123 named imports', 'wiring: 20 files, 122 named imports',
     'D17 文档抄的 wiring 汇总', 'wiring 那一行是现跑一遍比对的，抄错一个数就红'),
+  K('K21', 'README.md', '_tmp-moonsun-sab-r1.log', '_tmp-moonsun-sab-old.log',
+    'D19g 真 README', '把历史那句的轮次日志名改掉：它就不再是"某一轮的读数"，而是一处漂在文档里的旧数'),
   { id: 'K20', group: 'eng', file: 'README.md', count: 1,
     from: '`5 轮 · 45 次用规`', to: '`5 轮 · 46 次用规`',
     breaks: 'A9', note: '文档抄的引擎读数漂一个数字：A9 现跑引擎比对文档' },
@@ -146,33 +151,18 @@ const bad = results.filter((r) => !r.ok || r.error).length;
 console.log(`\n逼红 ${red} · 未逼红 ${bad}（刀 ${KNIVES.length} 把，含对照组）`);
 for (const r of results) if (!r.ok || r.error) console.log(`  未逼红：${r.id}${r.error ? ' · ' + r.error : ` · ${r.verdict}`}`);
 
-// ── 自钉回 README 的台账（动"实跑"那一格 + 两处逼红读数；钉对之后重跑不再改写）────
+// ── 自钉回 README 的台账（写法在 tools/pin.mjs，那里由 doctest 的 D19 现测）──────
 const RM = 'README.md';
 const rm = read(RM);
-let pinned = rm;
-for (const r of results) {
-  // 允许任意个空格：上一轮的自钉把行重写成 `|  K1 | ...`，而匹配只认 `| K1 |`，
-  // 于是第二轮"找不到行"——写者和读者对同一个形状各写了一份，就得让写者用读者的宽松式，
-  // 并且重写出单一形状（下面 join 时统一成单空格），第三轮才幂等。
-  const lineRe = new RegExp(`^\\|\\s+${r.id}\\s+\\|[^\\n]*$`, 'm');
-  const line = pinned.match(lineRe);
-  if (!line) { console.log(`  **RED** README 台账里没有 ${r.id} 这一行（表改了形状，读数没人收）`); process.exit(1); }
-  const cells = line[0].split('|').slice(1, -1);
-  cells[3] = r.error ? `ERROR ${r.error}` : r.verdict;
-  pinned = pinned.replace(lineRe, `| ${cells.map((c) => c.trim()).join(' | ')} |`);
-}
 const summary = `逼红 ${red} · 未逼红 ${bad}`;
-// 这个读数在文档里住两处：台账末尾那句、门禁清单的"本轮读数"那一格。只钉一处，
-// 另一处就会一直抄着上一轮的数字而没人发现——所以两处一起换，并且数一数是不是真的两处。
-const spots = [...pinned.matchAll(/逼红 \d+ · 未逼红 \d+/g)].length;
-if (spots < 2) {
-  console.log(`  **RED** 文档里只有 ${spots} 处「逼红 N · 未逼红 M」读数（台账那句与命令表那一格都得在，少一处就没人收这一轮的数）`);
+const { text: pinned, nailed, fail: pinFail } = pinReadme(rm, results, summary);
+if (pinFail.length) {
+  for (const f of pinFail) console.log(`  **RED** ${f}`);
   process.exit(1);
 }
-pinned = pinned.replace(/逼红 \d+ · 未逼红 \d+/g, summary);
 if (pinned !== rm) {
   writeFileSync(join(ROOT, RM), pinned);
-  console.log(`  已把真实读数钉回 README（台账 ${results.length} 行的"实跑"那一格 + ${spots} 处逼红合计）`);
+  console.log(`  已把真实读数钉回 README（台账 ${results.length} 行的"实跑"那一格 + ${nailed} 处逼红合计）`);
 } else {
   console.log('  README 台账已经等于本轮读数（幂等：没有改写）');
 }
