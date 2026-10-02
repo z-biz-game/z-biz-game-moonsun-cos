@@ -9,6 +9,7 @@ import { countSolutions, CAP_WORK } from '../js/engine/rules.js';
 import { solve } from '../js/engine/pencil.js';
 import { build, makePuzzle, makeBoard, dig } from '../js/engine/generate.js';
 import { makeRng } from '../js/engine/rng.js';
+import { readFileSync } from 'node:fs';
 import { TIERS, ELIMINATED } from '../js/engine/tiers.js';
 
 const argn = +process.argv[2];
@@ -43,12 +44,14 @@ for (const t of TIERS) {
   rows.push({ ...t, rate, medCuts: med(st.cuts), p95Cuts: p95(st.cuts), p10Cuts: p10(st.cuts),
     medSteps: med(st.steps), medMs: med(st.ms), p95Ms: p95(st.ms), maxMs: Math.max(0, ...st.ms),
     medNodes: med(st.nodes), p95Nodes: p95(st.nodes), maxNodes: Math.max(0, ...st.nodes),
-    medAttempts: med(st.attempts), ship: st.ship, cutsAll: st.cuts });
+    medAttempts: med(st.attempts), ship: st.ship, cutsAll: st.cuts,
+    medClues: med(st.clues), medRooms: med(st.rooms) });
   console.log(`  ${t.label} ${t.key}：出货 ${st.ship}/${N} = ${(100 * rate).toFixed(0)}% · 试次 med ${med(st.attempts)} · 线索 med ${med(st.clues)} · 区域 med ${med(st.rooms)} · 用规次数 med ${med(st.cuts)} p95 ${p95(st.cuts)} p10 ${p10(st.cuts)} · 推理轮 med ${med(st.steps)} · 唯一性节点 med ${med(st.nodes)} p95 ${p95(st.nodes)} max ${Math.max(...st.nodes)} · 出题总节点 med ${med(st.spent)} · 每张 med ${med(st.ms)} ms p95 ${p95(st.ms)} ms max ${Math.max(...st.ms)} ms · 墙钟 ${Date.now() - t0} ms`);
 }
 
 // B1 成本红线：每一档 p95 都必须停在"点换一局不觉得卡"的那一侧。ms 只卡上界（机器速度）。
 // B1b 判据 1 的预算：出货的每一张，唯一性那一次穷举都必须在 CAP_WORK 内走完。
+let B4LIVE = null;
 console.log('红线');
 for (const r of rows) {
   line(r.p95Ms <= r.budgetMs, `B1 ${r.key} 出题 p95 <= ${r.budgetMs} ms`, `实测 p95 ${r.p95Ms} ms · med ${r.medMs} ms · max ${r.maxMs} ms`);
@@ -102,6 +105,7 @@ console.log('B4 铅笔不说谎（对着多解盘）');
       if (p.done) { lied++; console.log(`    **RED** ${t.key} seed ${seed}：这张盘被计数器数出至少 ${w.solutions} 个解（${w.of} 条线索里拿掉一条、${w.nodes} 节点），却被铅笔推满了`); }
     }
   }
+  B4LIVE = { multi, lied, noSample };
   line(lied === 0, 'B4 铅笔从不把多解盘推满（选择性）', `见证多解盘 ${multi} · 被推满 ${lied}`);
   line(multi >= 3, 'B4 的样本真的含多解盘（否则 B4 空转）', `见证多解盘 ${multi}，另有 ${noSample} 张造不出样本（撞预算 ${unreadable} 次）`);
 }
@@ -144,6 +148,43 @@ console.log('B6 被淘汰档的实测读数（单试、不重试，走 build）'
       && e.fails.slice().sort().join('|') === back.join('|'),
       `B6 ${e.key} 的理由里的数等于本轮实测`, `本轮 出货 ${ship}/${OVER_N} · 节点 med ${med(nodes)} max ${Math.max(0, ...nodes)}（树里写 ${e.ship}/${e.samples} · med ${e.nodesMed} max ${e.nodesMax} · 退货 ${e.fails.join('/') || '无'}）· 本轮退货 ${back.join('/') || '无'} · 墙钟 ${wall} ms（每张 med ${ship ? Math.round(wall / ship) : '—'} ms）`);
   }
+}
+
+// ── B7 文档抄的样本统计 == 本轮读数（只在默认 15 张/档时比）──────────────────────
+// README 那张三档表与 B3/B4 那几句"本轮 X"此前是人抄的：动一行生成器、表照样绿。
+// 换了样本量就不比——文档那句写的口径就是 15 张，拿别的口径去比，红的是闸而不是谎。
+console.log('\nB7 README 抄的实测统计');
+if (N === 15 && B4LIVE) {
+  const rd = (u) => readFileSync(new URL(u, import.meta.url), 'utf8');
+  const docs = rd('../README.md') + '\n' + rd('../DESIGN.md');
+  const hit = (re, want, label) => {
+    const got = [...docs.matchAll(re)].map((m) => m[0]);
+    line(got.length >= 1 && got.every((g) => g === want), `B7 ${label}`,
+      `文档 ${got.length ? got.join(' ∥ ') : '(没抄)'} vs 本轮 ${want}`);
+  };
+  const tbl = [...docs.matchAll(/^\| ([^|]+?) \| (\d+)\/(\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|[^|\n]*\|$/gm)];
+  line(tbl.length === TIERS.length, 'B7 的解析自证：那张三档表要解析到三行（解析不到就比不了，不能算过）',
+    `解析 ${tbl.length} 行 vs ${TIERS.length} 档`);
+  for (const r of rows) {
+    const want = `| ${r.label} | ${r.ship}/${N} | ${r.medClues} | ${r.medRooms} | ${r.medCuts} | ${r.medSteps} | ${r.medNodes} |`;
+    const row = tbl.find((m) => m[1].trim() === r.label);
+    line(!!row && row[0].startsWith(want), `B7 ${r.key} 那一行的五个数等于本轮实测`,
+      `${row ? row[0].slice(0, 62) : '(文档没有这一档)'} vs ${want}`);
+  }
+  hit(/本轮 `\d+ < \d+ < \d+`/g, `本轮 \`${rows.map((r) => r.medCuts).join(' < ')}\``,
+    '难度带单调那句的三个 med 等于本轮');
+  hit(/`\d+x\d+ p95 \d+ < \d+x\d+ p10 \d+`/g,
+    `\`${rows[0].key} p95 ${rows[0].p95Cuts} < ${rows[2].key} p10 ${rows[2].p10Cuts}\``,
+    '区间不重叠那句的两个端点等于本轮');
+  hit(/见证多解盘 \d+ · 被推满 \d+/g, `见证多解盘 ${B4LIVE.multi} · 被推满 ${B4LIVE.lied}`,
+    'B4 的见证数与被推满数等于本轮');
+  hit(/另有 \d+ 张造不出样本/g, `另有 ${B4LIVE.noSample} 张造不出样本`,
+    'B4 反空转那句的"造不出"张数等于本轮');
+  line(rows.every((r) => r.ship === N), 'B7 的前提：三档真的都全出货（文档那句「三档都是 15/15」靠它）',
+    rows.map((r) => `${r.key} ${r.ship}/${N}`).join(' '));
+  hit(/\d+\/\d+ = 100%/g, `${N}/${N} = 100%`, '出货率那句的分子分母等于本轮');
+} else {
+  console.log(`  -- 跳过：本轮 N=${N}${B4LIVE ? '' : '（B4 那段没跑）'}，文档那句写的是 15 张/档`);
 }
 
 if (process.env.BLESS) {
