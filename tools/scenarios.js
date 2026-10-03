@@ -207,9 +207,12 @@
       [...new Set(Object.values(SITES).flat())].sort().join(','),
       ['cap', 'cursor', 'error', 'field', 'gridLine', 'hint', 'loop', 'moon', 'offMark', 'roomBorder', 'sun'].join(','));
 
-    // 样式表里每一个 var(--x) 都要有名字被 applyThemeVars 写出来：css 引用了 Palette 之外的
-    // 名字，那条声明整条废掉（缺 `line` 时九处 border 一起没边，而画面只"淡了一点"）。
-    // 数的是样式表里的变体名，不是"看起来有没有边"。
+    // 样式表里每一个 var(--x) 都必须取得到值：引用了谁都没写的名字，那条声明整条废掉
+    // （缺 `line` 时九处 border 一起没边，而画面只"淡了一点"）。
+    // 写这些名字有两个正当的地方——js/theme.js 的 applyThemeVars() 写在 <html> 的 inline 上，
+    // 而 safe-area 那一组是样式表自己在 `:root` 里声明的（env() 的值 JS 无从代笔）。
+    // 所以读**计算值**：inline 只认前一种，会把后一种当成缺（本轮就是这么红的：sal/sar/sat/sab
+    // 四个都在 css/game.css:105-110 的 :root 里，计算值实测是 0px，可 documentElement.style 读不到）。
     const used = new Set();
     for (const sheet of document.styleSheets) {
       let rules;
@@ -220,10 +223,10 @@
         for (const m of r.style.cssText.matchAll(/var\(--([A-Za-z0-9-]+)\)/g)) used.add(m[1]);
       }
     }
-    const rootStyle = document.documentElement.style;
+    const rootCS = getComputedStyle(document.documentElement);
     ck('样式表里能数出 var() 令牌（否则这条断言空转）', used.size >= 15, `${used.size} 个`);
-    const missing = [...used].filter((name) => !rootStyle.getPropertyValue('--' + name));
-    eq('css 引用的每一个 --名字 都被 applyThemeVars 写出来了', missing.join(','), '');
+    const missing = [...used].filter((name) => !rootCS.getPropertyValue('--' + name).trim());
+    eq('css 引用的每一个 --名字 都取得到值（applyThemeVars 的 inline 或样式表自己的 :root）', missing.join(','), '');
 
     // 像素：空格（没画）读作盘底，钉成留空读作留空点，符号读作符号
     const symbols = [];

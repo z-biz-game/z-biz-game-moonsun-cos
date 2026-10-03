@@ -327,7 +327,7 @@ if os.environ.get('SELF') == '1':
 else:
     doc = open(os.path.join(os.environ['HERE'], 'README.md'), encoding='utf8').read()
     drift = []
-    # tag 有两种形状：浏览器 scenario 记成 `腿/场景`（core/engine），node 腿直接记腿名（mouse）。
+    # tag 有两种形状：浏览器 scenario 记成「腿/场景」（core/engine），node 腿直接记腿名（mouse）。
     # 文档那一列用的是场景名，所以取最后一段；两个 tag 撞成同一个名字必须红——
     # 否则"少了一份报告"会被另多出来的一份悄悄补上数。
     names = {}
