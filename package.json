@@ -10,6 +10,7 @@
     "balance": "node tools/balance.mjs",
     "check": "for f in $(find js tools server.cjs -type f \\( -name \"*.js\" -o -name \"*.mjs\" -o -name \"*.cjs\" \\) | sort); do node --check \"$f\" || exit 1; done && node tools/wiring.mjs",
     "doctest": "node tools/doctest.mjs",
+    "sabotage": "node tools/sabotage.mjs",
     "verify": "bash tools/verify.sh"
   },
   "keywords": [
