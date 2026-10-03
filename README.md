@@ -157,7 +157,7 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 
 | 命令 | 它比的是什么 | 本轮读数（rc 写进工件，不是管道尾巴） |
 | --- | --- | --- |
-| `npm run check` | 逐文件 `node --check` + `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 20 files, 123 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
+| `npm run check` | 逐文件 `node --check` + `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 22 files, 123 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
 | `npm test` → `node tools/engine-test.mjs` | A0–A8：两条路独立、官方例题会合、歧义的 1/3、八条条款的近邻反例、三档 × 12 张出货不变量、无死规则、挖坏的盘必被拒收、seed 确定性；A9：文档抄的那几句引擎读数（节点、轮数、用规次数、出货数、整行直方图、本命令条数）逐处等于本轮 | `engine-test: 300 条通过 · 0 条失败`，`ENGINE_RC=0` |
 | `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、自钉台账的那只手（D19）、本命令自己的合计行数 | `rows: 98 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
 | `npm run balance` → `node tools/balance.mjs` | 出货率、成本 p95、难度阶梯、铅笔的选择性（对着多解盘）、菜单与淘汰理由里的「实测」 | `合计红线 0 条破口`，`BALANCE_RC=0` |
