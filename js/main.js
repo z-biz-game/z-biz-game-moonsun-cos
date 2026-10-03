@@ -212,6 +212,31 @@ function stopTimer() {
   timer = null;
 }
 
+// ── 暂停 ────────────────────────────────────────────────────────────────
+// 本仓的"用时"不是 Date.now() 相减，而是那个 250ms setInterval 每拍 elapsedMs += 250 累出来的。
+// 所以暂停的真动作就是**停掉这个 interval**：不停它，标志位写着暂停、秒数照样一格一格跳。
+// 恢复时重新 startTimer()，elapsedMs 从冻结处续累 —— 累加器本身就是当前值，
+// 恢复后不会有一次性补时（不跳步）。
+let paused = false;
+function setPaused(next) {
+  next = !!next;
+  if (paused === next) return paused;
+  if (next) {
+    stopTimer();
+  } else if (game && game.status !== 'won') {
+    startTimer();
+  }
+  paused = next;
+  paintPause();
+  return paused;
+}
+function paintPause() {
+  const btn = $('btn-pause');
+  if (!btn) return;
+  btn.textContent = paused ? '继续' : '暂停';
+  btn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+}
+
 // ── 提示：问铅笔要下一条被迫的结论 ──────────────────────────────────────────
 function hint() {
   if (!game || game.status === 'won') return;
@@ -290,6 +315,8 @@ window.addEventListener('keydown', (ev) => {
     return;
   }
   if (k === ' ' || k === 'Enter') { ev.preventDefault(); writeCell(game.cursor, 1); return; }
+  // 空格已被上面的落子占用，同键两义会一按两响，暂停只挂 P
+  if (k === 'p' || k === 'P') { ev.preventDefault(); setPaused(!paused); return; }
   if (k === 'Backspace' || k === 'Delete') {
     ev.preventDefault();
     if (game.status !== 'won') { game.write(game.cursor, UNDRAWN); render(); persist(); }
@@ -316,6 +343,7 @@ $('#btn-close-veil').addEventListener('click', hideVeil);
 $('#btn-hint').addEventListener('click', () => hint());
 $('#btn-undo').addEventListener('click', () => { if (game) { game.undo(); afterMove(); render(); persist(); } });
 $('#btn-clear').addEventListener('click', () => { if (game) { game.clearMarks(); afterMove(); render(); persist(); } });
+$('#btn-pause').addEventListener('click', () => setPaused(!paused));
 $('#btn-motion').addEventListener('click', (ev) => {
   const next = !prefersReducedMotion();
   setReduceMotion(next);
@@ -351,6 +379,10 @@ window.moonsun = {
   get puzzle() { return puzzle; },
   get won() { return !!game && game.status === 'won'; },
   get elapsed() { return elapsedMs; },
+  get paused() { return paused; },
+  setPaused,
+  /** 正在推进的那个数（毫秒）。暂停时它必须一毫秒不动 —— 这就是"真冻结"的判据。 */
+  simClock: () => elapsedMs,
   hint,
   newGame,
   mintSeed,
@@ -389,7 +421,11 @@ window.moonsun = {
     || document.msFullscreenElement || null;
 
   // 不支持也要给个说法：只把按钮灰掉而不解释，玩家会以为这功能没做完。
+  // supported 这枚标记不能省：下面 sync() 每次都会重写 title，不挡住的话，装的时候刚写
+  // 进去的人话原因会被随后的 sync() 立刻抹成"全屏 (F)"——禁用就变成一句没有理由的禁用。
+  let supported = !!req;
   const unsupported = () => {
+    supported = false;
     btn.disabled = true;
     btn.title = '这个浏览器不提供元素全屏（iOS Safari 请用「添加到主屏幕」独立打开）';
   };
@@ -420,7 +456,7 @@ window.moonsun = {
     const on = !!current();
     btn.setAttribute('aria-pressed', String(on));
     btn.textContent = on ? "退出全屏" : "全屏";
-    btn.title = "全屏" + '（F）';
+    if (supported) btn.title = "全屏" + '（F）';
     const body = document.body;
     if (body && body.classList) body.classList.toggle('fullscreen', on);
   }
