@@ -46,7 +46,7 @@ fi
 port_busy() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 if command -v lsof >/dev/null 2>&1; then
   port_busy "$HTTP" && { echo "  RED :$HTTP 上已经有监听进程了（本仓的 HTTP 端口号是 5276）：先查 lsof -nP -iTCP:$HTTP -sTCP:LISTEN" >&2; exit 2; }
-  port_busy "$PORT" && { echo "  RED :$PORT（CDP）上已经有监听进程了：那是别人（或上一轮自己）留下的 Chrome，这一腿会 attach 上去" >&2; exit 2; }
+  port_busy "$PORT" && { echo "  RED :${PORT}（CDP）上已经有监听进程了：那是别人（或上一轮自己）留下的 Chrome，这一腿会 attach 上去" >&2; exit 2; }
   echo "ports: :$HTTP 与 :$PORT 都空着"
 else
   echo "  NOTE 这个环境没有 lsof：端口独占检查没做，端口上坐着谁只能靠 preflight 的字节标记兜" >&2
@@ -83,12 +83,12 @@ preflight() {   # $1 = base url, $2 = root（'-' = 远端）, $3 = 形态序号
   if [ "$root" != "-" ]; then start_server "$root" "$base" "shape$3"; fi
   local served
   served=$(curl -fsS -m 5 "$base" 2>/dev/null || true)
-  case "$served" in *js/main.js*) ;; *) echo "nothing served at $base（本地形态见 $TMPD/server-shape$3.log）" >&2; return 1 ;; esac
+  case "$served" in *js/main.js*) ;; *) echo "nothing served at ${base}（本地形态见 $TMPD/server-shape$3.log）" >&2; return 1 ;; esac
   echo "$served" | grep -qi moonsun || { echo "$base 不是 moonsun：端口上坐着别的仓" >&2; return 1; }
   echo "$served" | grep -q 月之日 || { echo "$base 的 HTML 里没有 月之日" >&2; return 1; }
   curl -fsS -m 5 "${base}js/engine/rules.js" >/dev/null || { echo "$base 下取不到 js/engine/rules.js" >&2; return 1; }
   curl -fsS -m 5 "${base}css/game.css" >/dev/null || { echo "$base 下取不到 css/game.css（绝对路径写死的话就是这里红）" >&2; return 1; }
-  echo "  preflight shape$3 ok: $base（served 且带 moonsun/月之日 标记，css 与引擎模块都取到）"
+  echo "  preflight shape$3 ok: ${base}（served 且带 moonsun/月之日 标记，css 与引擎模块都取到）"
 }
 
 CPID=0
@@ -206,7 +206,7 @@ run_cmd() {   # $1 = tag（文件名安全的报告名）, 其余 = playtest 参
   if grep -q '^RESULT ' "$TMPD/$tag.cmd.out"; then
     parse "$tag"
   else
-    echo "  RED $tag：这一腿没交出 RESULT 行（跑挂了，见 $TMPD/$tag.cmd.console.log）" >&2
+    echo "  RED ${tag}：这一腿没交出 RESULT 行（跑挂了，见 $TMPD/$tag.cmd.console.log）" >&2
     sed 's/^/    /' "$TMPD/$tag.cmd.console.log" | tail -6
     FAILED=1
   fi
@@ -227,7 +227,7 @@ for shape in "${SHAPES[@]}"; do
   base=${shape%|*}
   root=${shape##*|}
   echo
-  echo "########## URL 形态 $i：$base ##########"
+  echo "########## URL 形态 ${i}：$base ##########"
   preflight "$base" "$root" "$i" || { FAILED=1; continue; }
   export BASE_URL="$base"
   for leg in $LEGS; do
@@ -368,7 +368,7 @@ if [ "$SELF" = 1 ]; then
   HIT=$(awk '$2 > 0' "$REPORTS" | wc -l | tr -d ' ')
   echo "  应有 $EXPECTED 份报告，实到 $GOT 份，其中 $HIT 份点名吃下了种下的错"
   if [ "$GOT" != "$EXPECTED" ]; then
-    echo "  RED 阴性自证的报告数对不上：$GOT ≠ $EXPECTED（有腿没跑，或对数表漂了）" >&2
+    echo "  RED 阴性自证的报告数对不上：$GOT ≠ ${EXPECTED}（有腿没跑，或对数表漂了）" >&2
     FAILED=1
   fi
   if [ "$FAILED" = 0 ]; then
