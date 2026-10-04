@@ -58,7 +58,7 @@ const KNIVES = [
     'D12b ci.yml', '反向：runner 里跑的门禁必须都被列出来'),
   K('K18', 'README.md', '（`js/engine/rules.js:170` 的 `CAP_WORK`）', '（`js/engine/rules.js:9999` 的 `CAP_WORK`）',
     'D13 每一条', '行号引用越界'),
-  K('K19', 'README.md', 'wiring: 22 files, 123 named imports', 'wiring: 22 files, 122 named imports',
+  K('K19', 'README.md', 'wiring: 24 files, 123 named imports', 'wiring: 24 files, 122 named imports',
     'D17 文档抄的 wiring 汇总', 'wiring 那一行是现跑一遍比对的，抄错一个数就红'),
   K('K21', 'README.md', '_tmp-moonsun-sab-r1.log', '_tmp-moonsun-sab-old.log',
     'D19g 真 README', '把历史那句的轮次日志名改掉：它就不再是"某一轮的读数"，而是一处漂在文档里的旧数'),

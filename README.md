@@ -157,9 +157,9 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 
 | 命令 | 它比的是什么 | 本轮读数（rc 写进工件，不是管道尾巴） |
 | --- | --- | --- |
-| `npm run check` | 逐文件 `node --check` + `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 22 files, 123 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
+| `npm run check` | 逐文件 `node --check` + `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 24 files, 123 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
 | `npm test` → `node tools/engine-test.mjs` | A0–A8：两条路独立、官方例题会合、歧义的 1/3、八条条款的近邻反例、三档 × 12 张出货不变量、无死规则、挖坏的盘必被拒收、seed 确定性；A9：文档抄的那几句引擎读数（节点、轮数、用规次数、出货数、整行直方图、本命令条数）逐处等于本轮 | `engine-test: 300 条通过 · 0 条失败`，`ENGINE_RC=0` |
-| `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、自钉台账的那只手（D19）、本命令自己的合计行数 | `rows: 98 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
+| `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、自钉台账的那只手（D19）、本命令自己的合计行数 | `rows: 100 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
 | `npm run balance` → `node tools/balance.mjs` | 出货率、成本 p95、难度阶梯、铅笔的选择性（对着多解盘）、菜单与淘汰理由里的「实测」 | `合计红线 0 条破口`，`BALANCE_RC=0` |
 | `bash tools/verify.sh` | 真 Chrome + 裸 CDP 真事件，读 DOM 文本/几何与画布像素，不读内部标志位 | `=== ALL GREEN ===`，664 条断言 / 0 失败，`VERIFY_RC=0` |
 | `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 24 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
@@ -185,6 +185,8 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 | `node tools/sabotage.mjs` | check | `Ledger trips the assertion each knife names` |
 | `bash tools/verify.sh` | browser | `Browser gate, both local URL shapes` |
 | `GATE_SELFTEST=1 bash tools/verify.sh` | browser | `Gate proves it can fail` |
+| `node tools/deploy-set.mjs` | check | `Deploy set gate` |
+| `node tools/deploy-set-selftest.mjs` | check | `Deploy set gate proves it can fail` |
 
 双向：这张表里写的每一步都必须真在那个 job 里（步骤名与命令都在），而 `ci.yml` 里跑到的每一个
 `tools/` 门禁都必须被这张表列出来——文档比门禁松，就会有一道门只在 CI 里红、本地没人解释它红的是什么。
@@ -284,7 +286,7 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 | 赢了只能有一处说了算 | 浏览器 `win` / `play` 腿 | 幕布、状态行、存档 `won` 标记、拒绝再落子四处同一读数 | `13 / 16 条 0 失败` |
 | 两种 URL 形态都算数、文档抄的条数等于真实条数 | `tools/verify.sh` 的 preflight + 跨形态条数比对 | 前缀形态与根形态各自 serve 本仓字节；逐 tag 条数两形态相同，且 README 那 15 个数与两个总数逐处等于本轮读数 | `2 个形态 · 30 份报告 · 332/664 条` |
 | 闸自己会红——每一份报告都会红 | `GATE_SELFTEST=1` 那一步 | 分母由 `scenarios_for` 现场算，没种上错期望的报告点名 | `rc=1`、`30/30 点名` |
-| 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D19 那一整套等式（D17 现跑 wiring 比它打印的那一行，D19 拿合成台账测"把读数写回文档"的那只手，D18 把本命令自己的合计行数钉回文档） | `rows: 98 fail: 0` |
+| 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D19 那一整套等式（D17 现跑 wiring 比它打印的那一行，D19 拿合成台账测"把读数写回文档"的那只手，D18 把本命令自己的合计行数钉回文档） | `rows: 100 fail: 0` |
 | doctest 自己不是空转 | `node tools/sabotage.mjs` | 24 把刀逐类塞回代码（含 1 把对照组），每把都必须红在**它点名的那条**断言上 | `逼红 24 · 未逼红 0` |
 
 ## 破坏试验台账
@@ -371,3 +373,41 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 13 条命名规则「每条都会开火」是在三档 × 12 张这批样本上量的，不是对任意盘的定理；
 移动端只证到「几何没坏」，没有真机；立项阶段那两种挖线索目标函数的对照数
 （按解数挖 vs 按 forced 挖）是写代码时的判断记录，本轮不复现。
+
+## 上线的到底是哪一批文件
+
+这个仓没有打包器：站点=一次文件拷贝。以前「拷哪些」写在 `pages.yml` 的 `run:` 里（手抄的几行
+`cp`）。本地 `index.html` 直读仓库根，永远自洽；线上却按那份清单拷，于是页面后来引用的
+`manifest.webmanifest`、`sw.js`、`icons/*` 可能一个都没上去——线上 404，而仓里的引擎测试与
+真浏览器闸全绿，因为它们跑的都是仓库根，没有任何一步在「按清单拷」的那个环境下加载过页面。
+
+现在清单只有一份，住在 `tools/assemble-site.sh`：CI 调它拷 `_site`，本地闸调它拷临时目录，
+然后**对拷出来的产物**提要求（`tools/deploy-set.mjs`）：
+
+- **W 清单与页面同源**：`pages.yml` 里必须真有 `run: bash tools/assemble-site.sh <dir>` 这一行，
+  `ci.yml` 里必须真有 `run: node tools/deploy-set.mjs`。认的是调用那一行，不是文件里出现过这个
+  路径——注释里本来就会写它，只 grep 字符串会被一句散文喂绿。
+- **R 引用可达**：引用不靠手打名单。从 `index.html` 的 `href/src` 出发，凡解析出来是 `.js`/`.css`
+  的就把那一站也扫一遍（CSS 的 `url()`、JS 去掉注释后的 `'./…'` 字面量、`new URL(x, base)` 的两种
+  基、`navigator.serviceWorker.register`、`scope`），`manifest` 的 icons/screenshots/shortcuts 各自
+  的 `src` 也算引用。取径上读不到的那一站本身就是红（读不到＝这一站根本没扫）。每条引用都必须在
+  产物里且非 0 字节；绝对路径单列一条红，因为 Pages 挂在 `/<repo>/` 前缀下会跳出去。
+- **P 位图不许说谎**：`manifest` 声明的 `sizes` 必须等于 PNG IHDR 的真实宽高。
+- **钉住两个数**：R 段实际检查的路径条数（`29`）与这一次跑的断言条数（`47`），两个数
+  都钉在 `tools/deploy-set.mjs` 顶部的那对常量里。没改页面却掉了，说明解析断了；删掉一张图标会同时
+  少一条 R10 与那张的 P1/P2，所以两个数一起钉，断言条数能漂就是闸在缩水的信号。这一节故意只写数值、
+  不写那对常量的名字：本仓原有的文档闸会拿"文档里出现过的同名标识号"回数它自己的条数（skyscraper
+  的 D14b 就是这种钉法），两道闸共用一个名字就互相打红。
+
+`tools/deploy-set-selftest.mjs` 是这两颗钉的阳性证明：它把仓库复制到临时目录，照着每一类断言
+各下一刀（X1 清单不收位图目录 / X2 模块边改名 / X3 CSS 写绝对路径 / X4 `start_url` 绝对 /
+X5 删光 >=512 图标 / X6 少一个必填字段 / X7 声明尺寸与真图不符 / X8 workflow 不调脚本 /
+X9 CI 不跑闸 / X10 是阴性对照——往入口 JS 追加一行只写在注释里的假路径，闸必须仍然绿、条数仍然
+`29`、断言仍然 `47`；X11 og:image 退回相对路径 / X12 og:image 的前缀指向别的 slug），
+要求每一刀都让闸**点名**变红。靶子从 `DEPLOY_SET_DUMP=1`
+的出处表现挑（取径真的会读的那支 JS / 那一张 CSS，不写死某一个仓的入口名），所以页面改了、仓与仓
+不同，台架跟着走。
+
+`node tools/deploy-set.mjs` 与 `node tools/deploy-set-selftest.mjs` 就是 CI 跑的那两条命令本身
+（package.json 里的 `deploy-set` / `deploy-set:selftest` 只是同一支脚本的 npm 入口）；把它们接进本仓
+那条浏览器 one-shot（`tools/verify.sh`）还欠着——那道脚本的腿名单与条数钉是每个仓自己的形状。
