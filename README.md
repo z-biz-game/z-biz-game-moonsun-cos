@@ -412,3 +412,6 @@ X9 CI 不跑闸 / X10 是阴性对照——往入口 JS 追加一行只写在注
 （package.json 里的 `deploy-set` / `deploy-set:selftest` 只是同一支脚本的 npm 入口）；本仓的整闸在 `tools/verify.sh` 的 `=== deploy-set ===` 那一段也各跑一次。它们红的时候并进本仓那条出口的退出码——这一条是这么证的：
 把 ci.yml 里那行 `run: node tools/deploy-set.mjs` 砍掉，本仓整闸必须点名红且退出码非 0。
 所以「本地全绿、线上 404 自己的 manifest / sw.js / 图标」这一类坏法在本地就会红。
+## 在线试玩
+
+<https://z-biz-game.github.io/z-biz-game-moonsun-cos/>（`main` 分支推送即自动部署）
