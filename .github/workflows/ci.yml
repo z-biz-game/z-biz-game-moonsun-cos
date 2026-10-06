@@ -22,10 +22,7 @@ jobs:
       # No npm install: the game has zero runtime dependencies, and pulling a browser or a
       # bundler into CI to prove nothing is how a repo starts failing on a network flake.
       - name: Syntax check every source
-        run: |
-          for f in $(git ls-files 'js/*.js' 'js/*/*.js'); do node --check "$f" || exit 1; done
-          node --check server.cjs
-          for f in $(git ls-files 'tools/*.mjs' tools/scenarios.js tools/playtest.cjs); do node --check "$f" || exit 1; done
+        run: npm run syntax
 
       # 逐文件 --check 只保证每个文件自己语法过；跨文件的 import 名字对不对（用到的名字
       # 真的被 export 了吗、import 进来的真的还在用吗）要这一条才看得见。本地 npm run check
