@@ -62,6 +62,12 @@ const KNIVES = [
     'D17 文档抄的 wiring 汇总', 'wiring 那一行是现跑一遍比对的，抄错一个数就红'),
   K('K21', 'README.md', '_tmp-moonsun-sab-r1.log', '_tmp-moonsun-sab-old.log',
     'D19g 真 README', '把历史那句的轮次日志名改掉：它就不再是"某一轮的读数"，而是一处漂在文档里的旧数'),
+  // 这两把改的是 tools/ci.sh 自己，而 `npm run ci` 正在边读边执行它：所以 from/to 必须**同字节数、
+  // 同行数**——长度一动，bash 没读到的那半截就从中间错位开始解析，那种红（或绿）都跟闸门无关。
+  K('K22', 'tools/ci.sh', 'run sabotage node tools/sabotage.mjs', 'run sabotage node tools/sabotage.bak',
+    'D20a', '本地入口少跑台账那一步：ci.yml 有的门，本地绿着跳过（同长度换后缀，不动字节数）'),
+  K('K23', 'tools/ci.sh', 'echo "${name}_RC=$step_rc" >>"$LOG"', 'echo "${name}_RX=$step_rc" >>"$LOG"',
+    'D20b', '每步的 rc 不再按步落进日志：借 tail 当整闸 rc 的形状（同样只改一个字母）'),
   { id: 'K20', group: 'eng', file: 'README.md', count: 1,
     from: '`5 轮 · 45 次用规`', to: '`5 轮 · 46 次用规`',
     breaks: 'A9', note: '文档抄的引擎读数漂一个数字：A9 现跑引擎比对文档' },

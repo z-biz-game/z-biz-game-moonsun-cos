@@ -162,7 +162,7 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 | `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、自钉台账的那只手（D19）、本命令自己的合计行数 | `rows: 102 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
 | `npm run balance` → `node tools/balance.mjs` | 出货率、成本 p95、难度阶梯、铅笔的选择性（对着多解盘）、菜单与淘汰理由里的「实测」 | `合计红线 0 条破口`，`BALANCE_RC=0` |
 | `bash tools/verify.sh` | 真 Chrome + 裸 CDP 真事件，读 DOM 文本/几何与画布像素，不读内部标志位 | `=== ALL GREEN ===`，664 条断言 / 0 失败，`VERIFY_RC=0` |
-| `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 24 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
+| `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 26 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
 | `GATE_SELFTEST=1 bash tools/verify.sh` | 每一份报告都必须吃下一条注定错的期望 | `rc=1`、30 份报告 30 份点名红，`SELFTEST_RC=1` |
 | `npm run ci` → `bash tools/ci.sh` | 本地一条命令把 ci.yml 两个 job 里的十步按顺序跑齐（syntax / wiring / engine-test / doctest / balance / sabotage / site-shape / deploy-set / deploy-set-selftest / verify），每步的 rc 由 ci.sh 自己捕获并写进那一份日志，整闸按最坏的一步退出 | 本轮十步逐个 `ok`、`CI_RC=0`，十条 `*_RC=0` 落在 `_tmp-moonsun-ci.log` 各段末尾，起停在 `_tmp-moonsun-ci-outer.log`（14:33:52Z→14:41:02Z）。两条都测过会红：把台账那一步换成不存在的文件，D20a 红并点名「本地入口没跑：tools/sabotage.mjs」（`CONTROL_DOCTEST_RC=1`，`_tmp-moonsun-dt20control.log`）；把 `step_rc=$?` 换成常量，D20b 红并报「捕获 缺」（`CONTROL_B_RC=1`，`_tmp-moonsun-dt20bcontrol.log`）——两次都是同行内替换、行数不动，对照完原样恢复 |
 
@@ -289,7 +289,7 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 | 两种 URL 形态都算数、文档抄的条数等于真实条数 | `tools/verify.sh` 的 preflight + 跨形态条数比对 | 前缀形态与根形态各自 serve 本仓字节；逐 tag 条数两形态相同，且 README 那 15 个数与两个总数逐处等于本轮读数 | `2 个形态 · 30 份报告 · 332/664 条` |
 | 闸自己会红——每一份报告都会红 | `GATE_SELFTEST=1` 那一步 | 分母由 `scenarios_for` 现场算，没种上错期望的报告点名 | `rc=1`、`30/30 点名` |
 | 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D20 那一整套等式（D17 现跑 wiring 比它打印的那一行，D19 拿合成台账测"把读数写回文档"的那只手，D20 现读 ci.yml 的每一个 `tools/*` 门禁、要求 `tools/ci.sh` 一步不少，D18 把本命令自己的合计行数钉回文档） | `rows: 102 fail: 0` |
-| doctest 自己不是空转 | `node tools/sabotage.mjs` | 24 把刀逐类塞回代码（含 1 把对照组），每把都必须红在**它点名的那条**断言上 | `逼红 24 · 未逼红 0` |
+| doctest 自己不是空转 | `node tools/sabotage.mjs` | 26 把刀逐类塞回代码（含 1 把对照组），每把都必须红在**它点名的那条**断言上 | `逼红 26 · 未逼红 0` |
 
 ## 破坏试验台账
 
@@ -302,7 +302,7 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 钉的是**行首锚点**而不是全局替换，因为全局替换曾经把下面那句**历史**读数也改成过本轮的数，
 那时没有任何一条闸读得到它；现在 `D19` 拿合成台账现测这只手（少一处锚点、多一处无人认领、
 历史那句被吞、台账行漂了，四种都必须红），钉对之后重跑不再改写。
-定稿后整轮重跑：`逼红 24 · 未逼红 0`（`_tmp-moonsun-sab-final4.log`，跑在回填完这一版的文档之后；
+定稿后整轮重跑：`逼红 26 · 未逼红 0`（`_tmp-moonsun-sab-final4.log`，跑在回填完这一版的文档之后；
 这一份日志的末尾就是写者的自证读数「README 台账已经等于本轮读数（幂等：没有改写）」，跑完 `git status`
 干净——幂等不必再靠另一个脚本重建 24 行喂回写者来证明）。
 
@@ -336,11 +336,13 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 | K19 | README 命令表那行的 named imports 数被改小 1 | 红 | 红 `D17 文档抄的 wiring 汇总` | `doctest` 的 D17（那一行是现跑 tools/wiring.mjs 比出来的，抄错就红） |
 | K20 | README 那句判据 2 的用规次数被改 +1 | 红 | 红 `A9` | `engine-test` 的 A9（文档抄的引擎读数由引擎现跑比对） |
 | K21 | 台账里那句历史读数的轮次日志名被改掉（它就不再点名自己那一轮，`pin.mjs` 的 HIST 认不出它） | 红 | 红 `D19g 真 README` | `doctest` 的 D19g（真 README：三处锚点之外不许有第四处漂着的读数）＋ D19h（历史那句必须点着某一轮的日志） |
+| K22 | `tools/ci.sh` 里台账那一步的门禁名被换成一个不存在的同长后缀（`sabotage.mjs`→`sabotage.bak`） | 红 | 红 `D20a` | `doctest` 的 D20a（本地入口少跑一个 ci.yml 现读出来的门禁）——这一句以前只有我手敲的对照撑着，现在是台账里的一把刀 |
+| K23 | `tools/ci.sh` 回写每步 rc 的那句改一个字母（`_RC=`→`_RX=`） | 红 | 红 `D20b` | `doctest` 的 D20b（"每一步的 rc 落在自己那一步的日志里"这条形状断言）；同长度替换，见下面那条关于"刀不许改 runner 自己的字节数" |
 | E1 | `js/engine/pencil.js` 的 `RULE_TEXT` 里删掉 `N2_两越定边` 那一行 | 红，且要点名清单 | 红 `A0` | `engine-test` 的 A0：`RULE_ORDER` 与 `RULE_TEXT` 必须同集合（名单改成手写之后这才是两个独立陈述，见上面第三件事） |
 | E2 | `js/engine/rules.js` 的 `CLAUSE_TEXT` 里把 `cross` 那行删掉 | 红，且要点名 code | 红 `A3` | `engine-test` 的 A3 双向覆盖：报得出 `note('cross'…)` 的必须有句子（第一轮它从隔壁 `CLAUSE_NAME` 蹭到了句子，见上面第二件事） |
 | N1 | README 的难点小节里插一句不承载任何数的散文 | 不该红 | 不红 | —（对照组：台账也得证明它不咬无关的话） |
 
-台账自己教的六件事（第一轮的读数在 `_tmp-moonsun-sab-r1.log`：那一轮 `逼红 19 · 未逼红 2`（刀 21 把），
+台账自己教的七件事（第一轮的读数在 `_tmp-moonsun-sab-r1.log`：那一轮 `逼红 19 · 未逼红 2`（刀 21 把），
 没咬到的两把 K5/E2 都是**闸自己空转**，不是刀下得不对——这是这个台架最值钱的产出）：
 
 - **K5 第一轮没红，因为名单改成手写之后 D3b 就空了。** `RULE_ORDER` 与 `RULE_TEXT` 是两条独立的声明，
@@ -365,6 +367,11 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
   它漂了而脚本没漂时，D7a 必须用「六个来源都解析到了」点名，而不是让正则扑空、静默变绿。
   D 系列每条等式都配这样一条反空转断言（解析到的条数 / 读到了那一行）——没有它们，
   「文档没写这一行」和「文档写的等于代码」在 rc 上长得一模一样。
+- **刀切在 runner 自己身上时，不许动一个字节。** K22/K23 改的是 `tools/ci.sh`，而 `npm run ci` 正在
+  边读边执行这一份文件：bash 读到哪算哪，长度一变，它没读到的那半截就从中间错位开始解析——红不是闸门红，
+  绿也不是闸门绿。所以这两把都做成**同字节数、同行数**的原地替换（`.mjs`→`.bak`、`_RC=`→`_RX=`），
+  台账那套"逐字节回读比对"照旧成立，而 runner 那份没读到的尾巴也不会错位。这条比"不许改行数"更紧：
+  行数不动而字节数动了，一样会漂。
 
 ## 不承诺
 
