@@ -159,11 +159,12 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 | --- | --- | --- |
 | `npm run check` | = `npm run syntax`（逐文件 `node --check`，find 根 `js tools server.cjs`，CI 的 `Syntax check every source` 调的就是这条）+ `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 24 files, 123 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
 | `npm test` → `node tools/engine-test.mjs` | A0–A8：两条路独立、官方例题会合、歧义的 1/3、八条条款的近邻反例、三档 × 12 张出货不变量、无死规则、挖坏的盘必被拒收、seed 确定性；A9：文档抄的那几句引擎读数（节点、轮数、用规次数、出货数、整行直方图、本命令条数）逐处等于本轮 | `engine-test: 300 条通过 · 0 条失败`，`ENGINE_RC=0` |
-| `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、自钉台账的那只手（D19）、本命令自己的合计行数 | `rows: 100 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
+| `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、A/B 标签、wiring 那一行、自钉台账的那只手（D19）、本命令自己的合计行数 | `rows: 102 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
 | `npm run balance` → `node tools/balance.mjs` | 出货率、成本 p95、难度阶梯、铅笔的选择性（对着多解盘）、菜单与淘汰理由里的「实测」 | `合计红线 0 条破口`，`BALANCE_RC=0` |
 | `bash tools/verify.sh` | 真 Chrome + 裸 CDP 真事件，读 DOM 文本/几何与画布像素，不读内部标志位 | `=== ALL GREEN ===`，664 条断言 / 0 失败，`VERIFY_RC=0` |
 | `node tools/sabotage.mjs` | 把「文档在抄一个已经不存在的数」逐类塞回代码，证明 doctest 会红且**红在点名的那一条** | `逼红 24 · 未逼红 0`，`SAB_RC=0`（这一格与台账末尾那句都由台架自己钉回去） |
 | `GATE_SELFTEST=1 bash tools/verify.sh` | 每一份报告都必须吃下一条注定错的期望 | `rc=1`、30 份报告 30 份点名红，`SELFTEST_RC=1` |
+| `npm run ci` → `bash tools/ci.sh` | 本地一条命令把 ci.yml 两个 job 里的十步按顺序跑齐（syntax / wiring / engine-test / doctest / balance / sabotage / site-shape / deploy-set / deploy-set-selftest / verify），每步的 rc 由 ci.sh 自己捕获并写进那一份日志，整闸按最坏的一步退出 | 本轮十步逐个 `ok`、`CI_RC=0`，十条 `*_RC=0` 落在 `_tmp-moonsun-ci.log` 各段末尾，起停在 `_tmp-moonsun-ci-outer.log`（14:33:52Z→14:41:02Z）。两条都测过会红：把台账那一步换成不存在的文件，D20a 红并点名「本地入口没跑：tools/sabotage.mjs」（`CONTROL_DOCTEST_RC=1`，`_tmp-moonsun-dt20control.log`）；把 `step_rc=$?` 换成常量，D20b 红并报「捕获 缺」（`CONTROL_B_RC=1`，`_tmp-moonsun-dt20bcontrol.log`）——两次都是同行内替换、行数不动，对照完原样恢复 |
 
 上面这一列的 rc 全写在自己的日志里，且这些日志都出自**定稿树**（`css/game.css` 的 `min-height` 修好
 之后那一版；浏览器腿：`_tmp-moonsun-gate-final2.log`；阴性自证：`_tmp-moonsun-selftest-final2.log`；
@@ -287,7 +288,7 @@ save 25 / nav 4 / resume 17 / reload 4 / corrupt 29，每形态 332 条 · 合�
 | 赢了只能有一处说了算 | 浏览器 `win` / `play` 腿 | 幕布、状态行、存档 `won` 标记、拒绝再落子四处同一读数 | `13 / 16 条 0 失败` |
 | 两种 URL 形态都算数、文档抄的条数等于真实条数 | `tools/verify.sh` 的 preflight + 跨形态条数比对 | 前缀形态与根形态各自 serve 本仓字节；逐 tag 条数两形态相同，且 README 那 15 个数与两个总数逐处等于本轮读数 | `2 个形态 · 30 份报告 · 332/664 条` |
 | 闸自己会红——每一份报告都会红 | `GATE_SELFTEST=1` 那一步 | 分母由 `scenarios_for` 现场算，没种上错期望的报告点名 | `rc=1`、`30/30 点名` |
-| 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D19 那一整套等式（D17 现跑 wiring 比它打印的那一行，D19 拿合成台账测"把读数写回文档"的那只手，D18 把本命令自己的合计行数钉回文档） | `rows: 100 fail: 0` |
+| 文档印的数就是代码里的现值 | `node tools/doctest.mjs` | 上面 D1–D20 那一整套等式（D17 现跑 wiring 比它打印的那一行，D19 拿合成台账测"把读数写回文档"的那只手，D20 现读 ci.yml 的每一个 `tools/*` 门禁、要求 `tools/ci.sh` 一步不少，D18 把本命令自己的合计行数钉回文档） | `rows: 102 fail: 0` |
 | doctest 自己不是空转 | `node tools/sabotage.mjs` | 24 把刀逐类塞回代码（含 1 把对照组），每把都必须红在**它点名的那条**断言上 | `逼红 24 · 未逼红 0` |
 
 ## 破坏试验台账
@@ -308,7 +309,7 @@ doctest 与 engine-test 都必须绿，否则"红了"说明不了是刀咬的。
 这台台架在仓里躺了很久，却没有任何调用方：`tools/verify.sh` 与 CI 都不跑它，`package.json` 里也没有
 那行 script。也就是说上面那些"必须红"是**一次本地手跑的读数**，之后断言改名、针漂了都没人会发现——
 第七道"看起来有、实际没跑"的闸。现在它接进了 check job（步骤 `Ledger trips the assertion each knife names`）
-和 `npm run sabotage`，CI 覆盖表补了它那一行，而那一行由 D12 现读 ci.yml 比对：把 CI 步骤删掉，红的是文档
+和 `npm run sabotage`，本轮再把它接进**本地入口** `tools/ci.sh`（`npm run ci` 一次跑齐 ci.yml 的两个 job，台账排在浏览器整闸之前；没有写进 `tools/verify.sh` 内部，是因为 K9 那把刀改的就是 verify.sh 的默认 `LEGS`，而 bash 边读边执行——让还在跑的脚本被自己的台架原地改写，红不红就变成解析偏移的运气。这条接线由 D20a 现读 ci.yml 的每一个 `tools/*` 门禁来比，本地入口少一步就红；D20b 要求每一步的 rc 由 ci.sh 自己捕获并写进那一份日志，不是拿尾巴那条的 rc 当整闸的 rc）。它自己没有进下面那张 CI 覆盖表——那张表由 D12 与 ci.yml 的 job 正文双向比对，而 ci.yml 跑的就是这十步的原样，`tools/ci.sh` 是它们的本地入口：本地入口少一步，红的是 D20a；CI 少一步，红的才是 D12
 对不上门禁，不是文档比门禁松。接线之后在接完的树上整跑一次：24 把逐条点名变红、干净树对照全绿、回写那只手
 幂等（没有改写本文件），退出码由脚本自己写进那一份日志的末尾（`SAB_RC=0`，`_tmp-moonsun-sab-wired4.log`）。
 

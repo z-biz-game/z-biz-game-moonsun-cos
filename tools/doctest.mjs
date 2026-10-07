@@ -422,6 +422,21 @@ ok(anchorHits.every((n) => n === 1) && stray19.length === 0,
 ok(histHits.length >= 1, 'D19h 历史那一处确实点着某一轮的日志（一处都没有＝这条只是摆设）',
   `${histHits.length} 处：${histHits.map((l) => (l.match(/_tmp-\S+\.log/) || [''])[0]).join(' ')}`);
 
+// ── D20 本地一条命令跑齐 CI（CI 独有的门不再等合并后第一次说话）────────────────
+// 清单在 tools/ci.sh，权威在 ci.yml：这一组现读 runner 里的每一个 `tools/*` 门禁，逐个要求本地
+// 入口里有同一条。手抄的那份落后一步就是这里红，而不是「本地全绿、CI 才红」。
+console.log('D20 本地整闸入口');
+const CI_SH = read('tools/ci.sh');
+const notLocal = ciTools.filter((c) => !CI_SH.includes(c));
+ok(CI_SH.split('\n').filter((l) => /^run /.test(l)).length >= 6 && notLocal.length === 0,
+  'D20a tools/ci.sh 跑了 ci.yml 现读出来的每一个 tools 门禁（少一步就是「只有 CI 会红」的门）',
+  notLocal.length ? `本地入口没跑：${notLocal.join(' ')}` : `ci.yml 的 ${ciTools.length} 个门禁全在：${ciTools.join(' ')}`);
+// 每一步的 rc 必须当场捕获并写进那一份日志：借最后一条命令的 tail 当「整闸的 rc」，是把某一步
+// 的失败读成 0 的最快办法。
+ok(/step_rc=\$\?/.test(CI_SH) && /_RC=\$step_rc/.test(CI_SH) && /exit \$FAILED/.test(CI_SH),
+  'D20b ci.sh 自己捕获每一步的 rc、写进日志、按最坏的退出（不是 tail 的 rc）',
+  `捕获 ${/step_rc=\$\?/.test(CI_SH) ? '在' : '缺'} / 回写 ${/_RC=\$step_rc/.test(CI_SH) ? '在' : '缺'} / 汇总退出 ${/exit \$FAILED/.test(CI_SH) ? '在' : '缺'}`);
+
 // ── D18 本命令自己的合计行数：文档抄的必须等于这一次跑出来的 ────────────────────
 // 这条必须是**最后一条** ok()：它拿 `rows + 1` 当期望值，因为打印在下一行、
 // 要把自己算进去。后面再加等式却不改文档，这条就会红——正是想要的方向。

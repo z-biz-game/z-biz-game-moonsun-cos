@@ -13,6 +13,7 @@
     "doctest": "node tools/doctest.mjs",
     "sabotage": "node tools/sabotage.mjs",
     "verify": "bash tools/verify.sh",
+    "ci": "bash tools/ci.sh",
     "deploy-set": "node tools/deploy-set.mjs",
     "deploy-set:selftest": "node tools/deploy-set-selftest.mjs"
   },
