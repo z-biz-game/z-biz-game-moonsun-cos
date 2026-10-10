@@ -1,0 +1,151 @@
+/* 月之日 · Moon-or-Sun。样式令牌全部来自 js/theme.js（applyThemeVars 把它们写成 --变量），
+   所以这里不可能出现「css 里的绿和 canvas 里的绿是两种绿」。 */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(120% 90% at 12% 0%, var(--bg-top) 0%, var(--bg-bottom) 62%, #0a0f1d 100%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  min-height: 100%;
+}
+
+#app { max-width: 1180px; margin: 0 auto; padding: var(--space-page); }
+
+.topbar { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-inner); }
+.brand h1 { margin: 0; font-size: 26px; letter-spacing: 0.08em; }
+.brand .sub { margin: 2px 0 0; color: var(--ink-dim); font-size: 13px; }
+
+.view { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: calc(var(--space-page) * 1.4); margin-top: var(--space-card); align-items: start; }
+
+.stage { display: flex; flex-direction: column; gap: var(--space-inner); }
+.stage-head { display: flex; flex-wrap: wrap; gap: var(--space-gutter); align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius-chip); background: var(--surface); border: 1px solid var(--line); color: var(--ink-dim); font-size: 12px; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+select { background: var(--surface-lift); color: var(--ink); border: 0; font: inherit; font-size: 12px; padding: 2px 4px; border-radius: 6px; }
+
+#board-wrap { position: relative; display: flex; justify-content: center; align-items: center; padding: var(--space-card); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); min-height: 300px; }
+canvas { touch-action: none; border-radius: var(--radius-cell); outline: none; }
+canvas:focus-visible { box-shadow: 0 0 0 3px var(--focus); }
+canvas.won { animation: winPulse var(--dur-win) var(--ease-ease); }
+@keyframes winPulse { 0% { filter: none; } 40% { filter: drop-shadow(0 0 18px rgba(76, 217, 176, 0.55)); } 100% { filter: none; } }
+
+/* veil 平时必须是 display:none：#win-veil 自己是 grid，会盖掉 UA 给 [hidden] 的 display:none，
+   于是留下一块看不见却还在吃点击的面板。门禁量的是它的矩形，不是这个属性。 */
+#win-veil { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(7, 10, 20, 0.82); border-radius: var(--radius-card); }
+#win-veil[hidden] { display: none !important; }
+.win-card { max-width: 90%; text-align: center; padding: var(--space-card); background: var(--surface-lift); border: 1px solid var(--accent); border-radius: var(--radius-card); }
+.win-card h3 { margin: 0 0 8px; font-size: 17px; }
+.win-card #win-meta { color: var(--accent); margin: 0 0 6px; font-size: 12px; }
+.win-note { color: var(--ink-dim); font-size: 12px; margin: 0 0 12px; }
+.win-actions { display: flex; gap: var(--space-gutter); justify-content: center; }
+
+.state-line { margin: 0; min-height: 40px; color: var(--ink-dim); font-size: 13px; line-height: 1.5; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.panel { display: flex; flex-direction: column; gap: var(--space-inner); padding: var(--space-card); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); }
+.acts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+button { font: inherit; font-size: 13px; padding: 9px 10px; border-radius: var(--radius-button); border: 1px solid var(--line); background: var(--surface-lift); color: var(--ink); cursor: pointer; transition: transform var(--dur-tap) var(--ease-ease), border-color var(--dur-base) var(--ease-ease); }
+button:hover { border-color: var(--accent); }
+button:active { transform: scale(0.97); }
+button.primary { background: linear-gradient(180deg, rgba(76, 217, 176, 0.24), rgba(76, 217, 176, 0.1)); border-color: var(--accent); }
+button.ghost { background: transparent; color: var(--ink-dim); }
+button[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
+/* min-height 是给手指的，不是给字形的：不写它，这个盒的高度就由**字体度量**决定——
+   本机 macOS 的 `normal` 行高把 12px 撑到 28 以上、闸就这样蒙过去了，
+   CI 的 Ubuntu 字体给的是 19px，同一个断言当场红（layout 腿，两种 URL 形态都红）。 */
+button.link { background: none; border: 0; color: var(--info); text-decoration: underline; padding: 0; font-size: 12px; min-height: 2rem; display: inline-flex; align-items: center; }
+:root.reduce-motion button, :root.reduce-motion canvas.won { transition: none; animation: none; }
+
+.rules-note, .keyhint { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-faint); }
+.legend-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.legend-row .chip { font-size: 11px; padding: 4px 8px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.stat { display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; background: rgba(242, 245, 251, 0.04); border-radius: var(--radius-chip); }
+.stat span { font-size: 11px; color: var(--ink-faint); }
+.stat b { font-size: 14px; color: var(--ink); }
+
+.verify-box { padding: var(--space-inner); background: rgba(255, 176, 61, 0.07); border: 1px solid var(--warn); border-radius: var(--radius-card); }
+.verify-box h4 { margin: 0 0 6px; font-size: 13px; color: var(--warn); }
+.verify-box p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
+
+.col-title { margin: 4px 0 0; font-size: 13px; color: var(--ink); letter-spacing: 0.04em; }
+.rules { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.65; color: var(--ink-dim); display: flex; flex-direction: column; gap: 4px; }
+.rules b { color: var(--ink); }
+.rules.sub-rules { padding-left: 14px; list-style: none; font-family: var(--font-mono); font-size: 11px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 11px; color: var(--ink-faint); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid rgba(242, 245, 251, 0.18); }
+.sw-field { background: var(--field); }
+.sw-loop { background: var(--loop); }
+.sw-off { background: var(--off-mark); border-radius: 50%; }
+.sw-cap { background: var(--cap); border-radius: 50%; }
+.sw-moon { background: var(--moon); border-radius: 50%; }
+.sw-sun { background: var(--sun); border-radius: 50%; }
+.sw-bad { background: var(--error); }
+.sw-border { background: var(--room-border); height: 4px; border-radius: 2px; }
+
+.foot { margin-top: calc(var(--space-page) * 1.2); display: flex; gap: var(--space-inner); justify-content: space-between; align-items: center; color: var(--ink-faint); font-size: 11px; line-height: 1.6; }
+.foot code { color: var(--ink-dim); }
+
+@media (max-width: 880px) {
+  .view { grid-template-columns: minmax(0, 1fr); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .foot { flex-direction: column; align-items: flex-start; }
+}
+
+/* 中央分发：safe-area 兜底 */
+
+/* ---------- safe-area：刘海与主屏条不吃掉按钮（中央分发，akari-cos 同口径） ---------- */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+html, body {
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+}
+body {
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+/* 贴边的固定/吸底元素自己让开主屏条，别让 home indicator 压住按钮 */
+.fixed-bottom, .bottom-bar, .hud-bottom, footer.app-footer {
+  padding-bottom: calc(var(--sab) + env(safe-area-inset-bottom, 0px));
+}
+
+
+/* ============================================================
+   44px 触摸命中下限（Apple HIG 手机可用性底线）
+   每个真正可点的元素都要有 ≥44×44 CSS px 的命中盒。
+   min-height / min-width 是**硬下限**：只会把过小的盒子撑到 44px，
+   本来就够大的控件（宽药丸、整行列表项、大数字键）外形一点不变。
+
+   两处非平凡之处：
+   1) 需要 !important —— 各组件自己有 `.shelf button { min-width: 34px }`
+      这类更"贴身"的规则，类选择器的优先级高于任何标签堆叠，
+      不加的话这条底线会被组件规则逐个抵消。
+   2) 先把 --touch-min 定死：tapa / nurikabe 早就写了
+      `min-height: var(--touch-min)`，但全仓没有任何地方定义过这个变量，
+      无 fallback 的 var() 在计算值阶段整条作废 —— 那是个看着像 44px、
+      实际什么都不保证的死规则。这里补上定义，让它们原本的意图真正成立。
+   ============================================================ */
+:root { --touch-min: 44px; }
+button,
+select,
+input,
+textarea,
+a[href],
+[role="button"] {
+  min-height: 44px !important;
+  min-width: 44px !important;
+}

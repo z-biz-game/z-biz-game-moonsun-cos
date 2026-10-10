@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<!-- 不写 <base>：这一页既要在 http://host/ 下跑，也要在 GitHub Pages 的 /z-biz-game-moonsun-cos/
+     前缀下跑。所有资源都走相对路径，硬编的 "/" 会在前缀形状下把 css 和引擎全部 404 掉。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" /><meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#070A14" />
+<title>月之日 · Moon-or-Sun 区域环推理</title>
+<meta name="description" content="月之日（Moonsun / 月さん）：画一条闭合的环，让它恰好穿过每个区域两次；环走进哪个区域，就把那个区域的符号全走到、另一个符号一格都不碰，沿环区域必须月·日交替。每局由引擎实测唯一解且铅笔零猜测可推满。" /><meta property="og:title" content="月之日 · Moon-or-Sun 区域环推理"><meta property="og:description" content="月之日（Moonsun / 月さん）：画一条闭合的环，让它恰好穿过每个区域两次；环走进哪个区域，就把那个区域的符号全走到、另一个符号一格都不碰，沿环区域必须月·日交替。每局由引擎实测唯一解且铅笔零猜测可推满。"><meta property="og:image" content="https://z-biz-game.github.io/z-biz-game-moonsun-cos/icons/icon-512.png"><meta name="twitter:image" content="https://z-biz-game.github.io/z-biz-game-moonsun-cos/icons/icon-512.png">
+<!-- Inline icon: without it the browser probes the domain root for /favicon.ico and logs a 404. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171A22'/%3E%3Cpath d='M6 22h7a6 6 0 0 0 6-6V6' fill='none' stroke='%234CD9B0' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='11' r='4' fill='%237B5CFF'/%3E%3Ccircle cx='10.2' cy='10.2' r='3.2' fill='%23171A22'/%3E%3Ccircle cx='23' cy='22' r='2.6' fill='%23FFB03D'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/game.css" />
+
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>月之日</h1>
+      <p class="sub">Moon-or-Sun · 区域环推理</p>
+    </div>
+    <div class="top-actions">
+      <button id="btn-pause" class="ghost" type="button" aria-pressed="false" title="暂停 / 继续 (P)">暂停</button>
+      <button id="btn-motion" class="ghost" type="button" aria-pressed="false">动效 全</button>
+      <button id="btn-fullscreen" class="ghost" type="button" aria-pressed="false" title="全屏（F）">全屏</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-game" class="view">
+      <div class="stage">
+        <div class="stage-head">
+          <label class="chip select-chip">尺寸
+            <select id="size-select" aria-label="盘面尺寸"></select>
+          </label>
+          <span id="stat-seed" class="chip mono" title="开局用的 seed：同一个 seed 由引擎重画同一张盘">seed —</span>
+          <span id="stat-time" class="chip mono" aria-label="本局耗时">00:00</span>
+        </div>
+
+        <div id="board-wrap">
+          <canvas id="board" tabindex="0" role="img"
+            aria-label="月之日盘面：粗线是区域边界，紫月牙与橙太阳是线索；点一格换它的形状（竖穿、横穿、四个拐角、钉成不在环上），右键倒退一档"
+            aria-describedby="state-line"></canvas>
+          <!-- 显式的 hidden 规则：#win-veil 平时是 display:grid，会盖掉 UA 的 [hidden]，
+               那等于一块看不见却还在吃点击的 veil。门禁量的是它的矩形，不是这个属性。 -->
+          <div id="win-veil" hidden>
+            <div class="win-card">
+              <h3>环闭合成一圈，每个区域都穿了两次</h3>
+              <p id="win-meta" class="mono"></p>
+              <p class="win-note">这句话是 <code>js/engine/rules.js</code> 的 <code>checks()</code> 说的——UI 自己没有第二本记分板。</p>
+              <div class="win-actions">
+                <button id="btn-again" class="primary" type="button">换一局</button>
+                <button id="btn-close-veil" class="ghost" type="button">就看不动</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p id="state-line" class="state-line" aria-live="polite">点一格开始：左键往前换形状，右键倒退一档。</p>
+        <p id="sr-cell" class="sr-only" aria-live="polite"></p>
+      </div>
+
+      <aside class="panel">
+        <div class="acts">
+          <button id="btn-hint" class="ghost" type="button" title="问铅笔（具名规则求解器）要下一条被迫的结论：它只指出该看哪一格，不替你画。">提示</button>
+          <button id="btn-undo" class="ghost" type="button">撤销</button>
+          <button id="btn-clear" class="ghost" type="button">全清</button>
+          <button id="btn-new" class="primary" type="button">换一局</button>
+        </div>
+        <p class="rules-note">「提示」只把铅笔已经推出的结论指给你看：它说「这一格一定（不）在环上」，不说「画成这个形状」。铅笔推不动时它直说推不动——出货的每一张盘都不该出现这句话（判据 2）。</p>
+
+        <div id="shape-legend" class="legend-row" aria-label="形状与按键"></div>
+
+        <div class="stats">
+          <div class="stat"><span>区域数</span><b id="stat-rooms" class="mono">0</b></div>
+          <div class="stat"><span>线索</span><b id="stat-clues" class="mono">0</b></div>
+          <div class="stat"><span>在环上的格</span><b id="stat-drawn" class="mono">0</b></div>
+          <div class="stat"><span>钉成不在环</span><b id="stat-off" class="mono">0</b></div>
+          <div class="stat"><span>没动过</span><b id="stat-open" class="mono">0</b></div>
+          <div class="stat"><span>线头</span><b id="stat-stubs" class="mono">0</b></div>
+          <div class="stat"><span>违规</span><b id="stat-bad" class="mono">0</b></div>
+          <div class="stat"><span>步数</span><b id="stat-moves" class="mono">0</b></div>
+          <div class="stat"><span>引擎说</span><b id="stat-verify" class="mono">—</b></div>
+        </div>
+
+        <div class="verify-box">
+          <h4>判胜只有一处</h4>
+          <p id="verify-line">「引擎说」那一格写的就是 <code>checks()</code> 返回里 <b>error 级</b>的条数（warn 级由「线头」那一格报）：它说没闭合，画面再好看也没赢。环没闭合时它只报线头，不去数区域的穿越次数——半条环上的「穿几次」是没有意义的读数。</p>
+        </div>
+
+        <h3 class="col-title">条款（引擎里的判胜表）</h3>
+        <ol id="clause-list" class="rules"></ol>
+
+        <h3 class="col-title">铅笔的具名规则</h3>
+        <ul id="rule-list" class="rules sub-rules"></ul>
+
+        <h3 class="col-title">尺寸菜单为什么只有这几档</h3>
+        <ul id="size-note" class="rules"></ul>
+
+        <div class="legend" id="legend">
+          <span><i class="sw sw-field"></i>没动过的格</span>
+          <span><i class="sw sw-loop"></i>你画的环</span>
+          <span><i class="sw sw-off"></i>钉成「不在环上」</span>
+          <span><i class="sw sw-cap"></i>还没接上的线头</span>
+          <span><i class="sw sw-moon"></i>月亮线索</span>
+          <span><i class="sw sw-sun"></i>太阳线索</span>
+          <span><i class="sw sw-bad"></i>违规（这一笔接不通）</span>
+          <span><i class="sw sw-border"></i>区域边界</span>
+        </div>
+        <p class="keyhint"><b>点击</b> 换形状 · <b>右键</b> 倒退一档 · <b>方向键</b> 移光标 · <b>0–6</b> 直接点形状（0=不在环上，1–6=六种直/拐） · <b>空格</b> 滚下一档 · <b>退格</b> 擦成没动过 · <b>H</b> 提示 · <b>Z</b> 撤销 · <b>C</b> 全清 · <b>N</b> 换一局</p>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>盘面 = 引擎的 <code>makePuzzle()</code> 给的题面 · 判胜 = <code>checks()</code> · 提示 = <code>pencil.solve()</code> · 像素与模型的一致性由 <code>tools/verify.sh</code> 在真实 Chrome 里逐条量（两种 URL 形状 × 七条腿）。</span>
+    <button id="btn-reset" class="link" type="button">清空存档</button>
+  </footer>
+</div>
+
+<script type="module" src="js/main.js"></script>
+  <script src="js/sw-register.js"></script>
+</body>
+</html>

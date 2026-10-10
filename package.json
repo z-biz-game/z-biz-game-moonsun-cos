@@ -1,0 +1,34 @@
+{
+  "name": "moonsun",
+  "version": "1.0.0",
+  "description": "月与日 Moonsun（月さん）— 零猜测区域环推理. 出货的每一局都由穷举计数器证明唯一、并由命名规则铅笔从空盘推满；尺寸菜单、难度带与淘汰理由都是量出来的.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.cjs",
+    "dev": "node server.cjs 5276",
+    "test": "node tools/engine-test.mjs",
+    "balance": "node tools/balance.mjs",
+    "syntax": "for f in $(find js tools server.cjs -type f \\( -name \"*.js\" -o -name \"*.mjs\" -o -name \"*.cjs\" \\) | sort); do node --check \"$f\" || exit 1; done && echo OK",
+    "check": "npm run syntax && node tools/wiring.mjs",
+    "doctest": "node tools/doctest.mjs",
+    "sabotage": "node tools/sabotage.mjs",
+    "verify": "bash tools/verify.sh",
+    "ci": "bash tools/ci.sh",
+    "deploy-set": "node tools/deploy-set.mjs",
+    "deploy-set:selftest": "node tools/deploy-set-selftest.mjs"
+  },
+  "keywords": [
+    "game",
+    "puzzle",
+    "moonsun",
+    "moon-or-sun",
+    "loop",
+    "logic",
+    "deduction",
+    "no-guess",
+    "procedural",
+    "web"
+  ],
+  "author": "z-biz-game",
+  "license": "MIT"
+}

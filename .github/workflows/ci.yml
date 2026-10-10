@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: syntax + engine guarantees
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No npm install: the game has zero runtime dependencies, and pulling a browser or a
+      # bundler into CI to prove nothing is how a repo starts failing on a network flake.
+      - name: Syntax check every source
+        run: npm run syntax
+
+      # 逐文件 --check 只保证每个文件自己语法过；跨文件的 import 名字对不对（用到的名字
+      # 真的被 export 了吗、import 进来的真的还在用吗）要这一条才看得见。本地 npm run check
+      # 已经带它，CI 必须带同一个，否则"只有 CI 会红"的门会在合并后才第一次说话。
+      - name: Import wiring is real
+        run: node tools/wiring.mjs
+
+      # The real promise: every generated board has one solution and is reachable by the named
+      # pencil rules. Plain Node, so it guards merges without a browser.
+      - name: Engine tests
+        run: node tools/engine-test.mjs
+
+      # README 印出去的每一个「现值」都得等于代码/脚本里的现在值：三档表、八条文、13 条规则名、
+      # 腿 × 形态、端口、节点预算、这张覆盖表本身、以及 SAMPLES 旋钮。散文没有闸读，
+      # 于是它会一直抄到代码改了字而文档还在引用上一个世界——这一步就是不让它那样。
+      - name: Docs are asserted surface
+        run: node tools/doctest.mjs
+
+      # The ladder is a promise, not a caption: the tier medians printed in the menu are what this
+      # step re-measures, and it goes red if a tier stops ordering by deduction steps.
+      - name: Difficulty ladder is still measured
+        run: node tools/balance.mjs
+        env:
+          SAMPLES: "15"
+
+      - name: Entry files exist
+        run: test -f index.html && grep -q '<canvas' index.html && grep -q 'js/main.js' index.html && grep -q 'moonsun' index.html
+
+      # 上面那道 doctest 说"文档抄的是现在的数"；这一道说"那些数绿得住"。24 把刀逐类把谎塞回代码，
+      # 每一把都必须红在**它点名的那条**断言上（红在隔壁等于没守），跑之前还先在干净树上要求两道闸绿。
+      # 全部刀都是纯 node（doctest / engine-test 两条腿），所以放得进这个没有 Chrome 的 job。
+      # 它从前只是仓里一个没人调用的文件——README 那张台账一旦回写，之后断言改名、针漂了都没人发现。
+      - name: Ledger trips the assertion each knife names
+        run: node tools/sabotage.mjs
+      # 部署集闸：按 tools/assemble-site.sh 那份清单真拷一遍产物，要求页面会去要的东西
+      # 都在里面。这一仓曾经因为清单落后于页面而线上 404 自己的 manifest/sw.js/图标，
+      # 而本地一切全绿——因为本地根本没有「按清单拷」这一步。
+      - name: Deploy set gate
+        run: node tools/deploy-set.mjs
+      # 阴性自证：每一类断言当场被打红一次，闸必须点名吃掉那一刀；写在注释里的假路径
+      # 必须不算引用。钉住的条数由这一跑证明它真的会红，不是由记性证明。
+      - name: Deploy set gate proves it can fail
+        run: node tools/deploy-set-selftest.mjs
+
+  # 真浏览器闸：headless Chrome + CDP，读 DOM 文本/几何、画布像素与真实输入事件，不读内部标志位。
+  # 独立 job，node 22 而不是 check job 的 20：台架是裸 CDP 驱动，用的是 Node 22 才有的全局
+  # WebSocket/fetch；在 20 上第一次 attach 就死在 "WebSocket is not defined"，一条断言都跑不到。
+  browser:
+    name: real browser gate (both URL shapes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # verify.sh 自己起 server，两种 URL 形态（根 / 与 Pages 的 /z-biz-game-moonsun-cos/）都在
+      # 同一个 server 上跑同一套场景；条数逐条相同才算绿。
+      - name: Browser gate, both local URL shapes
+        env:
+          WD_TIMEOUT: 900
+        run: bash tools/verify.sh
+
+      # 阴性自证：闸必须能被证明"会红"。种一条注定错的期望，必须点名变红并且 rc 非 0。
+      - name: Gate proves it can fail
+        env:
+          WD_TIMEOUT: 900
+        run: |
+          set +e
+          GATE_SELFTEST=1 bash tools/verify.sh > _tmp-selftest.log 2>&1
+          rc=$?
+          set -e
+          echo "rc=$rc"
+          tail -25 _tmp-selftest.log; grep -E '应有|点名吃下|ok 闸|RED' _tmp-selftest.log | tail -8
+          [ "$rc" -ne 0 ] || { echo "SELFTEST 竟然全绿：这个闸证明不了自己会红"; exit 1; }
+          grep -q 'FAIL' _tmp-selftest.log || { echo "SELFTEST 红了但没有点名是哪条断言"; exit 1; }
