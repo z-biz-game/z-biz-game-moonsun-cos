@@ -311,16 +311,27 @@ ok(unlisted.length === 0, 'D12b ci.yml 里跑的每个 tools 门禁都被覆盖�
 // ── D13 引用不漂：文档里每一个 path:NN 都指向真实文件里真实存在的行 ───────────
 console.log('D13 行号引用');
 const cites = [...DOCS.matchAll(/((?:\.github\/workflows\/)?[\w./-]+\.(?:js|mjs|cjs|sh|json|html|yml)):(\d+)(?:-(\d+))?/g)];
-const bad = [];
-for (const c of cites) {
+// 一条引用能犯的错有三样：文件不在树里、行号越界、被指的行段整段是空行。第三样是这一轮补的：
+// 在中间插几行之后 `:NN` 指的是空行，可它还在界内，只问「行号存在吗」的那道闸一路绿 —— 在界内不等于指到了代码。
+const citeMiss = (raw, fromRaw, toRaw) => {
   let src;
-  try { src = read(c[1]); } catch { bad.push(`${c[1]}:${c[2]}（文件不存在）`); continue; }
-  const n = src.split('\n').length;
-  if (+c[2] > n || (+c[3] && +c[3] > n)) bad.push(`${c[1]}:${c[2]}${c[3] ? '-' + c[3] : ''}（该文件只有 ${n} 行）`);
-}
+  try { src = read(raw).split('\n'); } catch { return `${raw}:${fromRaw}（文件不存在）`; }
+  const to = +(toRaw || fromRaw);
+  if (+fromRaw > src.length || to > src.length) return `${raw}:${fromRaw}${toRaw ? '-' + toRaw : ''}（该文件只有 ${src.length} 行）`;
+  if (src.slice(+fromRaw - 1, to).join('').trim() === '') return `${raw}:${fromRaw}${toRaw ? '-' + toRaw : ''} 那几行整段是空行`;
+  return '';
+};
+const bad = cites.map((c) => citeMiss(c[1], c[2], c[3])).filter(Boolean);
+// 空行这一道不许空转：靶子从本闸自己的文件里现量（写死行号会在有人填了那一行那天停止测试）。
+const ownLines = read('tools/doctest.mjs').split('\n');
+let blankAt = 0;
+for (let i = 1; i < ownLines.length; i++) if (String(ownLines[i]).trim() === '') { blankAt = i + 1; break; }
+const blankKnife = blankAt ? citeMiss('tools/doctest.mjs', blankAt, null) : '';
 ok(cites.length >= 15, `D13a 文档里的行号引用解析到了 ${cites.length} 条（少于 15 条说明引用格式改了）`, `${cites.length} 条引用`);
-ok(bad.length === 0, 'D13 每一条 path:NN 引用都落在真实文件的行数内',
-  bad.length ? `越界：${bad.join('，')}` : `${cites.length} 条全部在范围内`);
+ok(bad.length === 0 && !!blankKnife, 'D13 每一条 path:NN 引用都落在真实文件的行数内、且被指的那几行整段不许是空行（这一格自己带一把指向空行的刀）',
+  bad.length ? `越界/不存在/空行：${bad.join('，')}`
+    : blankKnife ? `${cites.length} 条全部在范围内 · 刀：本闸第 ${blankAt} 行现量是空行，指过去判红「那几行整段是空行」`
+      : '本闸自己的文件里现量不出空行靶子 —— 空行那一道没被证明过');
 
 // ── D14 规则原文：DESIGN 引的那两家逐字文本 == fixtures 的 SOURCES ───────────
 console.log('D14 两家规则原文');
