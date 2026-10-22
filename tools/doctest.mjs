@@ -333,6 +333,39 @@ ok(bad.length === 0 && !!blankKnife, 'D13 每一条 path:NN 引用都落在真�
     : blankKnife ? `${cites.length} 条全部在范围内 · 刀：本闸第 ${blankAt} 行现量是空行，指过去判红「那几行整段是空行」`
       : '本闸自己的文件里现量不出空行靶子 —— 空行那一道没被证明过');
 
+// ── D13c 锚点：写在引用旁边的名字必须整词落在被指的那几行里 ───────────────────
+// 上面 D13 只问「行号存在吗」：把 `:NN` 挪到隔壁一行它一路绿，而文档那句主张已经指错了地方。
+// 前指（`NAME`（`path:NN`））与后指（`path:NN` 的 `NAME`）两式都认；名字允许带点号成员
+// （`window.foo` 这类在别的仓里被文法判成路径整条丢掉——不进锚点也不判＝隐形，2026-10-23 在
+// 文档行号对账的正本腿里修掉，这里同一判法：成员词查那几行、接收者查这个文件）。
+const FP = '[\\w./@-]+\\.(?:js|mjs|cjs|sh|json|html|yml)';
+const NM = '[A-Za-z_$][\\w$]{2,}(?:\\.[A-Za-z_$][\\w$]{2,})*';
+const ANCHOR_BEFORE = new RegExp('`(' + NM + ')`[ \\t]*(?:（|\\()[ \\t]*`(' + FP + '):(\\d+)(?:-(\\d+))?`', 'g');
+const ANCHOR_AFTER = new RegExp('`(' + FP + '):(\\d+)(?:-(\\d+))?`[ \\t]*(?:的|[—–→]|、|，)[ \\t]*`(' + NM + ')`', 'g');
+const wholeIn = (t, txt) => new RegExp('(^|[^\\w$])' + t.replace(/\$/g, '\\$') + '([^\\w$]|$)').test(txt);
+const anchorMiss = (name, rel, from, to) => {
+  let src;
+  try { src = read(rel).split('\n'); } catch { return `${name} → ${rel}（文件不存在）`; }
+  const a = +from, b = +(to || from);
+  const win = src.slice(Math.max(0, a - 1), Math.min(src.length, b + 2)).join('\n');
+  const parts = name.split('.');
+  const miss = (parts.length > 1 ? parts.slice(1) : parts).filter((x) => !wholeIn(x, win));
+  if (parts.length > 1 && !wholeIn(parts[0], src.join('\n'))) miss.push(parts[0] + '（接收者不在这个文件里）');
+  return miss.length ? `${name} → ${rel}:${a}${b !== a ? '-' + b : ''} 那几行里没有 ${miss.join('、')}` : '';
+};
+const anchorAll = [...DOCS.matchAll(ANCHOR_BEFORE)].map((m) => [m[1], m[2], m[3], m[4]])
+  .concat([...DOCS.matchAll(ANCHOR_AFTER)].map((m) => [m[4], m[1], m[2], m[3]]));
+const anchorBad = anchorAll.map(([n, r, f, t]) => anchorMiss(n, r, f, t)).filter(Boolean);
+// 反空转：两式各给一个合成靶子（本仓的文档一旦没人这么写，认到的条数会静默变 0，而读数看着仍像测过）；
+// 整词判据三个方向都得对——命中、不命中、只有前缀不许算命中。
+const CTRL13 = '`ctrlTokenA`（`js/x.mjs:10`）与 `js/x.mjs:11` 的 `ctrlTokenB`';
+const shape13 = [...CTRL13.matchAll(ANCHOR_BEFORE)].length + [...CTRL13.matchAll(ANCHOR_AFTER)].length;
+ok(anchorAll.length >= 1 && anchorBad.length === 0 && shape13 === 2
+  && wholeIn('ctrlTokenZz', 'let ctrlTokenZz = 1;') && !wholeIn('ctrlTokenZz', 'let ctrlTokenZz2 = 1;') && !wholeIn('ctrlToken', 'let ctrlTokenZz = 1;'),
+  'D13c 锚点：引用旁边点名的符号必须整词落在被指那几行里（前指/后指两式都认，带点号的按成员词判、接收者查文件）',
+  `${anchorAll.length} 条带指认 · 两式合成靶子 ${shape13}/2 · 整词三向（命中/不命中/只到前缀）`
+  + (anchorBad.length ? `；名不副实的 ${anchorBad.length} 处：${anchorBad.join(' ∥ ')}` : '；逐条读回真文件，没有一处指歪'));
+
 // ── D14 规则原文：DESIGN 引的那两家逐字文本 == fixtures 的 SOURCES ───────────
 console.log('D14 两家规则原文');
 ok(SOURCES.length === 2 && SOURCES.every((s) => s.text.length >= 1), 'D14a 夹具里就是两个独立来源（数源这条不许漂）',
