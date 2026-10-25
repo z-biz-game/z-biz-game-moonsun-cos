@@ -14,6 +14,10 @@ import { Game, SHAPE_CYCLE, SHAPE_NAME, UNDRAWN, OFF } from './ui/game.js';
 import { BoardView } from './render/board.js';
 import { Store } from './store.js';
 import { Palette, Space, applyThemeVars, setReduceMotion, prefersReducedMotion } from './theme.js';
+// 听觉与触觉这两路反馈：视觉与数值之外，桌面上还该有"听得见"的一路。
+// 音频模块自己管手势解锁与真静音（suspend），这里只管把音接到引擎的判定上。
+import { audio } from './audio.js';
+import { haptics } from './haptics.js';
 
 const VERSION = '1.0.0';
 
@@ -182,6 +186,10 @@ function afterMove() {
   const won = game.wonNow();
   game.status = won ? 'won' : 'playing';
   if (won) {
+    // 通关只响一次：引擎的 wonNow() 说这一局成了才响（status 写成 'won' 之后
+    // 再落子会被 writeCell 挡掉，所以这里天然只响一次）。
+    audio.play('win');
+    haptics.correct();
     stopTimer();
     $('#win-meta').textContent = `${puzzle.sizeKey} · ${game.roomCount} 个区域 · ${game.clueCount} 条线索 · ${game.drawnCells} 格在环上 · ${fmtTime(elapsedMs)} · ${game.moves.length} 步 · hints ${game.hints}`;
     $('#win-veil').hidden = false;
@@ -244,6 +252,8 @@ function hint() {
   if (!pencil.done) {
     pulse = { cell: null, until: 0, color: Palette.error };
     say('铅笔（具名规则）在这盘上推不动了，剩下的要靠猜——这种局不该出现在出货里（判据 2）。');
+    audio.play('wrong');         // 铅笔推不动了
+    haptics.wrong();
     render();
     return;
   }
@@ -258,9 +268,13 @@ function hint() {
   }
   if (cell < 0) {
     say('铅笔的每一步你都已经落笔了——那就只剩把它接起来。');
+    audio.play('wrong');         // 没有可提示的那一格了
+    haptics.wrong();
     return;
   }
   game.hints++;
+  audio.play('move');           // 提示：只说哪一格，不代画
+  haptics.tap();
   game.cursor = cell;
   pulse = { cell, until: Date.now() + 1800, color: Palette.hint };
   say(`看第 ${(cell / game.cols | 0) + 1} 行第 ${(cell % game.cols) + 1} 格：${why}`);
@@ -268,12 +282,29 @@ function hint() {
 }
 
 // ── 输入 ──────────────────────────────────────────────────────────────────
+// 声音接在**引擎的判定分支**上：
+//   · Game.cycle 返回 true = 引擎真改了那一格 → correct
+//   · 这一局已经量完了，再落一笔是不被接受的 → blocked
+//   · Game.cycle 返回 false = 那一格已经是这个形状了 → blocked
 function writeCell(i, step) {
-  if (i < 0 || !game || game.status === 'won') return;
+  if (!game) return;
+  if (game.status === 'won') {
+    // 这局量完了：再落一笔不生效。玩家得听得见"这一下没生效"。
+    audio.play('blocked');
+    haptics.wrong();
+    return;
+  }
+  if (i < 0) return;            // 画布外的空白不是控件，连"试一下"都不算
   game.cursor = i;
   if (step === 0) return;
-  if (step > 0) game.cycle(i, 1);
-  else game.cycle(i, -1);
+  const changed = step > 0 ? game.cycle(i, 1) : game.cycle(i, -1);
+  if (changed) {
+    audio.play('correct');
+    haptics.correct();
+  } else {
+    audio.play('blocked');     // 引擎说这一格没改成
+    haptics.wrong();
+  }
   afterMove();
   render();
   persist();
@@ -319,7 +350,19 @@ window.addEventListener('keydown', (ev) => {
   if (k === 'p' || k === 'P') { ev.preventDefault(); setPaused(!paused); return; }
   if (k === 'Backspace' || k === 'Delete') {
     ev.preventDefault();
-    if (game.status !== 'won') { game.write(game.cursor, UNDRAWN); render(); persist(); }
+    if (game.status !== 'won') {
+      // Game.write 回了 true/false：true = 这一格真擦掉了；false = 本来就是空的，
+      // 这一下什么也没擦掉 —— 那也是一个"不被接受"的动作，得听得见。
+      const cleared = game.write(game.cursor, UNDRAWN);
+      if (cleared) {
+        audio.play('tap');
+        haptics.tap();
+      } else {
+        audio.play('blocked');
+        haptics.wrong();
+      }
+      render(); persist();
+    }
     return;
   }
   if (/^[0-6]$/.test(k)) {
@@ -341,8 +384,24 @@ $('#btn-new').addEventListener('click', () => newGame({ seed: mintSeed() }));
 $('#btn-again').addEventListener('click', () => newGame({ seed: mintSeed() }));
 $('#btn-close-veil').addEventListener('click', hideVeil);
 $('#btn-hint').addEventListener('click', () => hint());
-$('#btn-undo').addEventListener('click', () => { if (game) { game.undo(); afterMove(); render(); persist(); } });
-$('#btn-clear').addEventListener('click', () => { if (game) { game.clearMarks(); afterMove(); render(); persist(); } });
+$('#btn-undo').addEventListener('click', () => {
+  if (!game) return;
+  if (game.undo()) {
+    audio.play('move');         // 笔迹退了一步
+    haptics.tap();
+  } else {
+    audio.play('wrong');        // 没有可退的一步
+    haptics.wrong();
+  }
+  afterMove(); render(); persist();
+});
+$('#btn-clear').addEventListener('click', () => {
+  if (!game) return;
+  game.clearMarks();
+  audio.play('move');           // 盘面清空了
+  haptics.tap();
+  afterMove(); render(); persist();
+});
 $('#btn-pause').addEventListener('click', () => setPaused(!paused));
 $('#btn-motion').addEventListener('click', (ev) => {
   const next = !prefersReducedMotion();
@@ -475,4 +534,27 @@ window.moonsun = {
   window.addEventListener('webkitfullscreenchange', sync);
   window.addEventListener('MSFullscreenChange', sync);
   sync();
+})();
+
+// ---- 音效开关（#btn-sound）----
+//
+// 静音走 `audio.setMuted(true)`，那是 `ctx.suspend()`：整个 AudioContext 挂起。
+// **不许**改成像"把 master.gain 拧到 0"那样 —— 只拧 gain 是假静音：节点照建、时钟照跑，
+// 取消静音之后还有一截尾巴在响。真正的静音必须是挂起整个上下文。
+//
+// 按钮找不到就不装（和全屏那一条同一条纪律）：留一串没人按的代码等于没做这个功能。
+(function bindSound() {
+  const btn = document.getElementById('btn-sound');
+  if (!btn) return;
+  function paint() {
+    const on = !audio.muted;
+    btn.setAttribute('aria-pressed', String(on));
+    btn.textContent = on ? '音效：开' : '音效：关';
+    btn.title = on ? '点击关闭音效' : '点击开启音效';
+  }
+  btn.addEventListener('click', () => {
+    audio.setMuted(!audio.muted);
+    paint();
+  });
+  paint();
 })();
