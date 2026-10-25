@@ -67,7 +67,7 @@ code、名字、句子三份清单都只有 `js/engine/rules.js` 里那一份（
   「今天的 seed」会让界面上印着的那串数字明天就对不上号。画不出合法盘就顺延下一个 seed，
   最多 `MAX_ATTEMPTS = 24` 次（`js/engine/generate.js:173`），状态行上 `seed … · N 试` 念的就是这个数。
 - **冲突回显**：`report()` 指到的格子在盘上标红，还没接上的线头标一个淡紫的点。
-  判胜只问 `Game.wonNow()` 一次并把结论写回 `game.status`（`js/main.js:182` 的 `afterMove()`）：状态行、
+  判胜只问 `Game.wonNow()` 一次并把结论写回 `game.status`（`js/main.js:196` 的 `afterMove()`）：状态行、
   存档里的 `won`、幕布、以及「赢了之后拒绝再落子」读的是同一个 status，否则会出现赢了却写着「还差线索」。
 - **动效**：`动效 全 / 动效 简` 一个按钮，同时改 JS 标志与 `documentElement` 的 class——只改一边的话
   canvas 不抖了、按钮却还在缩。也读 `prefers-reduced-motion`。
@@ -157,7 +157,7 @@ npm start            # 零依赖静态服务 → http://127.0.0.1:5276/
 
 | 命令 | 它比的是什么 | 本轮读数（rc 写进工件，不是管道尾巴） |
 | --- | --- | --- |
-| `npm run check` | = `npm run syntax`（逐文件 `node --check`，find 根 `js tools server.cjs`，CI 的 `Syntax check every source` 调的就是这条）+ `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 26 files, 128 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
+| `npm run check` | = `npm run syntax`（逐文件 `node --check`，find 根 `js tools server.cjs`，CI 的 `Syntax check every source` 调的就是这条）+ `tools/wiring.mjs`（每个 import 的名字真的被 export、用到的名字真的被 import 或本地声明） | `wiring: 26 files, 125 named imports, 0 un-imported uses, 0 broken`，`CHECK_RC=0`（这一行由 D17 现跑一遍比对） |
 | `npm test` → `node tools/engine-test.mjs` | A0–A8：两条路独立、官方例题会合、歧义的 1/3、八条条款的近邻反例、三档 × 12 张出货不变量、无死规则、挖坏的盘必被拒收、seed 确定性；A9：文档抄的那几句引擎读数（节点、轮数、用规次数、出货数、整行直方图、本命令条数）逐处等于本轮 | `engine-test: 300 条通过 · 0 条失败`，`ENGINE_RC=0` |
 | `npm run doctest` → `node tools/doctest.mjs` | **文档本身**印出去的数与代码/脚本现值：三档表、八条文、13 条规则、预算、淘汰句、腿×形态、端口、逐报告条数、官方例题拷贝、CI 覆盖表、规则原文、`SAMPLES` 旋钮、行号引用、引用旁边那个名字的整词锚点、A/B 标签、wiring 那一行、自钉台账的那只手（D19）、本命令自己的合计行数 | `rows: 103 fail: 0`，`DOCTEST_RC=0`（行数由 D18 自己钉） |
 | `npm run balance` → `node tools/balance.mjs` | 出货率、成本 p95、难度阶梯、铅笔的选择性（对着多解盘）、菜单与淘汰理由里的「实测」 | `合计红线 0 条破口`，`BALANCE_RC=0` |

@@ -17,13 +17,27 @@ import { Palette, Space, applyThemeVars, setReduceMotion, prefersReducedMotion }
 // 听觉与触觉这两路反馈：视觉与数值之外，桌面上还该有"听得见"的一路。
 // 音频模块自己管手势解锁与真静音（suspend），这里只管把音接到引擎的判定上。
 import { audio } from './audio.js';
-import { haptics } from './haptics.js';
 
 const VERSION = '1.0.0';
 
 applyThemeVars();
 
 const $ = (sel) => document.querySelector(sel);
+
+/**
+ * 触觉：仓里已经有一份垫片（js/haptics.js，用 <script> 引入，暴露 window.haptic）。
+ * 这里**不另造一套**：只在引擎判定的分支上叫它一声，让"被拒"与"通关"有各自的档。
+ *
+ * ⚠️ 触觉是补路，不是主路：navigator.vibrate 在 iOS Safari 上不存在，
+ *    桌面 Chrome 也需用户激活且体感弱 ⇒ 不能拿它顶替听觉。
+ */
+function haptic(kind) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.haptic === 'function') window.haptic(kind);
+  } catch (_) {
+    /* 没有这一路就算了：它本来就是补路 */
+  }
+}
 const canvas = $('#board');
 const view = new BoardView(canvas);
 
@@ -189,7 +203,7 @@ function afterMove() {
     // 通关只响一次：引擎的 wonNow() 说这一局成了才响（status 写成 'won' 之后
     // 再落子会被 writeCell 挡掉，所以这里天然只响一次）。
     audio.play('win');
-    haptics.correct();
+    haptic('win');
     stopTimer();
     $('#win-meta').textContent = `${puzzle.sizeKey} · ${game.roomCount} 个区域 · ${game.clueCount} 条线索 · ${game.drawnCells} 格在环上 · ${fmtTime(elapsedMs)} · ${game.moves.length} 步 · hints ${game.hints}`;
     $('#win-veil').hidden = false;
@@ -253,7 +267,7 @@ function hint() {
     pulse = { cell: null, until: 0, color: Palette.error };
     say('铅笔（具名规则）在这盘上推不动了，剩下的要靠猜——这种局不该出现在出货里（判据 2）。');
     audio.play('wrong');         // 铅笔推不动了
-    haptics.wrong();
+    haptic('err');
     render();
     return;
   }
@@ -269,12 +283,12 @@ function hint() {
   if (cell < 0) {
     say('铅笔的每一步你都已经落笔了——那就只剩把它接起来。');
     audio.play('wrong');         // 没有可提示的那一格了
-    haptics.wrong();
+    haptic('err');
     return;
   }
   game.hints++;
   audio.play('move');           // 提示：只说哪一格，不代画
-  haptics.tap();
+  haptic('tap');
   game.cursor = cell;
   pulse = { cell, until: Date.now() + 1800, color: Palette.hint };
   say(`看第 ${(cell / game.cols | 0) + 1} 行第 ${(cell % game.cols) + 1} 格：${why}`);
@@ -291,7 +305,7 @@ function writeCell(i, step) {
   if (game.status === 'won') {
     // 这局量完了：再落一笔不生效。玩家得听得见"这一下没生效"。
     audio.play('blocked');
-    haptics.wrong();
+    haptic('err');
     return;
   }
   if (i < 0) return;            // 画布外的空白不是控件，连"试一下"都不算
@@ -300,10 +314,10 @@ function writeCell(i, step) {
   const changed = step > 0 ? game.cycle(i, 1) : game.cycle(i, -1);
   if (changed) {
     audio.play('correct');
-    haptics.correct();
+    haptic('tap');
   } else {
     audio.play('blocked');     // 引擎说这一格没改成
-    haptics.wrong();
+    haptic('err');
   }
   afterMove();
   render();
@@ -356,10 +370,10 @@ window.addEventListener('keydown', (ev) => {
       const cleared = game.write(game.cursor, UNDRAWN);
       if (cleared) {
         audio.play('tap');
-        haptics.tap();
+        haptic('tap');
       } else {
         audio.play('blocked');
-        haptics.wrong();
+        haptic('err');
       }
       render(); persist();
     }
@@ -388,10 +402,10 @@ $('#btn-undo').addEventListener('click', () => {
   if (!game) return;
   if (game.undo()) {
     audio.play('move');         // 笔迹退了一步
-    haptics.tap();
+    haptic('tap');
   } else {
     audio.play('wrong');        // 没有可退的一步
-    haptics.wrong();
+    haptic('err');
   }
   afterMove(); render(); persist();
 });
@@ -399,7 +413,7 @@ $('#btn-clear').addEventListener('click', () => {
   if (!game) return;
   game.clearMarks();
   audio.play('move');           // 盘面清空了
-  haptics.tap();
+  haptic('tap');
   afterMove(); render(); persist();
 });
 $('#btn-pause').addEventListener('click', () => setPaused(!paused));
